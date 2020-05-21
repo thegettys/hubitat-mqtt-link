@@ -1,8 +1,0 @@
-box: node:4
-
-build:
-  steps:
-    - script:
-        code: export NODE_ENV='testing'
-    - npm-install
-    - npm-test
