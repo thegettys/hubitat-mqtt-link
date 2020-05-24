@@ -903,11 +903,11 @@ def initialize() {
 	// Subscribe to events from the mqttLink
 	subscribe(mqttLink, "message", mqttLinkHandler)
 
-    updateSubscription()
+    updateSubscription(attributes)
 }
 
 // Update the mqttLink's subscription
-def updateSubscription() {
+def updateSubscription(attributes) {
 	def json = new groovy.json.JsonOutput().toJson([
 		path: "/subscribe",
 		body: [
@@ -1005,7 +1005,7 @@ def inputHandler(evt) {
 		])
         
 		debug("[inputHandler] Forwarding device event to driver: ${json}")
-        mqttLinkHandler.deviceNotification(json)
+        mqttLink.deviceNotification(json)
 	}
 }
 
