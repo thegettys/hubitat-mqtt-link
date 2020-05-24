@@ -933,7 +933,13 @@ def normalizeId(device) {
 }
 
 def normalizedId(com.hubitat.hub.domain.Event evt) {
-    return normalizeId(evt.displayName, evt.deviceId)
+    def deviceId = evt.deviceId
+    
+    if (!deviceId && evt.type == "LOCATION_MODE_CHANGE") {
+        return normalizeId(evt.displayName, "mode")
+    }
+    
+    return normalizeId(evt.displayName, deviceId)
 }
 
 // ========================================================
