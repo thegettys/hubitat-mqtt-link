@@ -75,6 +75,9 @@ preferences {
 }
 
 def capabilitiesPage() {
+    def deprecatedCapabilities = ["Actuator","Beacon","Bridge","Bulb","Button","Garage Door Control","Holdable Button",
+                                  "Indicator","Light","Lock Only","Music Player","Outlet","Polling","Relay Switch",
+                                  "Sensor","Shock Sensor","Thermostat Setpoint","Thermostat","Touch Sensor"]
     dynamicPage(name: "capabilitiesPage") {        
         section ("<h2>Specify Exposed Capabilities per Device</h2>") {
             paragraph """<style>.pill {border-radius:4px;background-color:#337ab7;color:#fff;padding:10px 15px;
@@ -113,7 +116,9 @@ def capabilitiesPage() {
                 def deviceCapabilities = device.getCapabilities()
                 
                 deviceCapabilities.each { capability ->
-                    selectedCapabilities.add(capability.getName())
+                    if (!deprecatedCapabilities.contains(capability.getName())) {
+                        selectedCapabilities.add(capability.getName())
+                    }
                 }
                 
                 def normalizeId = normalizeId(device)
@@ -141,12 +146,6 @@ def capabilitiesPage() {
 		capability: "capability.accelerationSensor",
 		attributes: [
 			"acceleration"
-		]
-	],
-	"actuator": [
-		name: "Actuator",
-		capability: "capability.actuator",
-		attributes: [
 		]
 	],
 	"alarm": [
@@ -179,21 +178,6 @@ def capabilitiesPage() {
 		attributes: [
 			"battery"
 		]
-	],
-	"beacon": [
-		name: "Beacon",
-		capability: "capability.beacon",
-		attributes: [
-			"presence"
-		]
-	],
-	"bulb": [
-		name: "bulb",
-		capability: "capability.bulb",
-		attributes: [
-			"switch"
-		],
-		action: "actionOnOff"
 	],
 	"carbonDioxideMeasurement": [
 		name: "Carbon Dioxide Measurement",
@@ -317,14 +301,6 @@ def capabilitiesPage() {
 			"filterStatus"
 		]
 	],
-	"garageDoor": [
-		name: "Garage Door Control",
-		capability: "capability.garageDoorControl",
-		attributes: [
-			"door"
-		],
-		action: "actionOpenClose"
-	],
 	"healthCheck": [
 		name: "Health Check",
 		capability: "capability.healthCheck",
@@ -347,22 +323,6 @@ def capabilitiesPage() {
 			"image"
 			],
 		action: "actionImageCapture"
-	],
-	"indicator": [
-		name: "Indicator",
-		capability: "capability.indicator",
-		attributes: [
-			"indicatorStatus"
-		],
-		action: "actionIndicator"
-	],
-	"light": [
-		name: "Light",
-		capability: "capability.light",
-		attributes: [
-			"switch"
-		],
-		action: "actionOnOff"
 	],
 	"lightEffects": [
 		name: "Light Effects",
@@ -423,18 +383,6 @@ def capabilitiesPage() {
 		],
 		action: "actionActiveInactive"
 	],
-	"musicPlayer": [
-		name: "Music Player",
-		capability: "capability.musicPlayer",
-		attributes: [
-			"level",
-			"mute",
-			"status",
-			"trackData",
-			"trackDescription"
-		],
-		action: "actionMusicPlayer"
-	],
 	"notification": [
 		name: "Notification",
 		capability: "capability.notification",
@@ -442,27 +390,12 @@ def capabilitiesPage() {
 		],
 		action: "actionNotification"
 	],
-	"outlet": [
-		name: "Outlet",
-		capability: "capability.outlet",
-		attributes: [
-			"switch"
-		],
-		action: "actionOnOff"
-	],
 	"pHMeasurement": [
 		name: "pH Measurement",
 		capability: "capability.pHMeasurement",
 		attributes: [
 			"pH"
 		]
-	],
-	"polling": [
-		name: "Polling",
-		capability: "capability.polling",
-		attributes: [
-		],
-		action: "actionPolling"
 	],
 	"powerMeter": [
 		name: "Power Meter",
@@ -515,14 +448,6 @@ def capabilitiesPage() {
             "humidity"
 		]
 	],    
-	"relaySwitch": [
-		name: "Relay Switch",
-		capability: "capability.relaySwitch",
-		attributes: [
-			"switch"
-		],
-		action: "actionOnOff"
-	],
 	"releasableButton": [
 		name: "ReleasableButton",
 		capability: "capability.releasableButton",
@@ -554,19 +479,6 @@ def capabilitiesPage() {
             "securityKeypad"
 		],
 		action: "actionSecurityKeypad"
-	],
-	"sensor": [
-		name: "Sensor",
-		capability: "capability.sensor",
-		attributes: [
-		]
-	],
-	"shockSensor": [
-		name: "Shock Sensor",
-		capability: "capability.shockSensor",
-		attributes: [
-			"shock"
-		]
 	],
 	"signalStrength": [
 		name: "Signal Strength",
@@ -703,13 +615,6 @@ def capabilitiesPage() {
 		],
 		action: "actionThermostatSchedule"
 	],
-	"thermostatSetpoint": [
-		name: "Thermostat Setpoint",
-		capability: "capability.thermostatSetpoint",
-		attributes: [
-			"thermostatSetpoint"
-		]
-	],
 	"threeAxis": [
 		name: "Three Axis",
 		capability: "capability.threeAxis",
@@ -733,13 +638,6 @@ def capabilitiesPage() {
 		],
 		action: "actionTone"
 	],
-	"touchSensor": [
-		name: "Touch Sensor",
-		capability: "capability.touchSensor",
-		attributes: [
-			"touch"
-		]
-	],
 	"tv": [
 		name: "TV",
 		capability: "capability.TV",
@@ -760,23 +658,6 @@ def capabilitiesPage() {
 			"temperature"
 		]
 	],
-	"thermostat": [
-		name: "Thermostat",
-		capability: "capability.thermostat",
-		attributes: [
-			"coolingSetpoint",
-            "heatingSetpoint",
-            "schedule",
-            "supportedThermostatFanModes",
-            "supportedThermostatModes",
-            "temperature",
-            "thermostatFanMode",
-            "thermostatMode",
-            "thermostatOperatingState",
-            "thermostatSetpoint"
-		],
-		action: "actionThermostat"
-	],    
 	"ultravioletIndex": [
 		name: "Ultraviolet Index",
 		capability: "capability.ultravioletIndex",
@@ -1233,20 +1114,6 @@ def actionImageCapture(device, attribute, value) {
 	device.take()
 }
 
-def actionIndicator(device, attribute, value) {
-	switch (value) {
-		case "indicatorNever":
-			device.indicatorNever()
-			break
-		case "indicatorWhenOff":
-			device.indicatorWhenOff()
-			break
-		case "indicatorWhenOn":
-			device.indicatorWhenOn()
-			break
-	}
-}
-
 def actionLightEffects(device, attribute, value) {
 	switch (value) {
 		case "setEffect":
@@ -1302,53 +1169,8 @@ def actionMomentary(device, attribute, value) {
 	device.push()
 }
 
-def actionMusicPlayer(device, attribute, value) {
-	switch(attribute) {
-		case "mute":
-			device.mute()
-			break
-		case "nextTrack":
-			device.nextTrack()
-			break
-		case "pause":
-			device.pause()
-			break
-		case "play":
-			device.play()
-			break
-		case "playTrack":
-			device.playTrack(value)
-			break
-		case "previousTrack":
-			device.previousTrack()
-			break
-		case "restoreTrack":
-			device.restoreTrack(value)
-			break
-		case "resumeTrack":
-			device.resumeTrack(value)
-			break
-		case "setLevel":
-			device.setLevel(value)
-			break
-		case "setTrack":
-			device.setTrack(value)
-			break
-		case "stop":
-			device.stop()
-			break
-		case "unmute":
-			device.unmute()
-			break
-	}
-}
-
 def actionNotification(device, attribute, value) {
 	device.deviceNotification(value)
-}
-
-def actionPolling(device, attribute, value) {
-	device.poll()
 }
 
 def actionSamsungTV(device, attribute, value) {
@@ -1469,50 +1291,6 @@ def actionTV(device, attribute, value) {
 			device.volumeUp()
 			break
 	}
-}
-
-def actionThermostat(device, attribute, value) {
-	switch (attribute) {
-		case "auto":
-			device.auto()
-			break
-		case "cool":
-			device.cool()
-			break
-		case "emergencyHeat":
-			device.emergencyHeat()
-			break
-		case "fanAuto":
-			device.fanAuto()
-			break
-		case "fanCirculate":
-			device.fanCirculate()
-			break
-		case "fanOn":
-			device.fanOn()
-			break
-		case "heat":
-			device.heat()
-			break
-		case "off":
-			device.off()
-			break
-		case "setCoolingSetpoint":
-			device.setCoolingSetpoint(value)
-			break
-		case "setHeatingSetpoint":
-			device.setHeatingSetpoint(value)
-			break
-		case "setSchedule":
-			device.setSchedule(value)
-			break
-		case "setThermostatFanMode":
-			device.setThermostatFanMode(value)
-			break
-		case "setThermostatMode":
-			device.setThermostatMode(value)
-			break
-    }
 }
 
 def actionThermostatCoolingSetpoint(device, attribute, value) {

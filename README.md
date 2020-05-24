@@ -149,8 +149,6 @@ Limited access to devices within each of these categories made it impossible to 
 [Hubitat Capabilities List](https://docs.hubitat.com/index.php?title=Driver_Capability_List) | [SmartThings Capabilities List](https://docs.smartthings.com/en/latest/capabilities-reference.html)
 * Acceleration Sensor - accelerationSensor
 	* acceleration
-* Actuator - actuator
-	* -
 * Alarm - alarm
 	* alarm
 		* siren
@@ -175,12 +173,6 @@ Limited access to devices within each of these categories made it impossible to 
 		* volumeDown
 * Battery - battery
 	* battery
-* Beacon - beacon
-	* presence
-* Bulb - bulb
-	* switch
-		* on
-		* off
 * Carbon Dioxide Measurement - carbonDioxideMeasurement
 	* carbonDioxide
 * Carbon Monoxide Detector - carbonMonoxideDetector
@@ -226,27 +218,12 @@ Limited access to devices within each of these categories made it impossible to 
   * speed
 * Filter Status - filterStatus
   * filterStatus
-* Garage Door Control - garageDoor
-  * door
-	  * open
-	  * close
 * Health Check - healthCheck
   * checkInterval
-action: actionHealthCheck
-  * - 
 * Illuminance Measurement - illuminanceMeasurement
   * illuminance
 * Image Capture - imageCapture
   * image
-* Indicator - indicator
-  * indicatorStatus
-    * indicatorNever
-    * indicatorWhenOff
-    * indicatorWhenOn
-* Light - light
-  * switch
-    * on
-    * off
 * Light Effects - lightEffects
   * effectName
   * lightEffects
@@ -277,34 +254,10 @@ action: actionHealthCheck
   * motion
     * active
     * inactive
-* Music Player - musicPlayer
-  * level
-    * setLevel
-  * mute
-    * mute
-    * unmute
-  * status
-    * nextTrack
-    * pause
-	* play
-	* playTrack
-	* previousTrack
-	* restoreTrack
-	* resumeTrack
-	* setTrack
-	* stop
-    * trackData
-    * trackDescription
 * Notification - notification
   * - 
-* Outlet - outlet
-  * switch
-    * on
-    * off
 * pH Measurement - pHMeasurement
   * pH
-* Polling - polling
-  * - 
 * Power Meter - powerMeter
   * power
 * Power Source - powerSource
@@ -322,10 +275,6 @@ action: actionHealthCheck
   * pushed
 * Relative Humidity Measurement - relativeHumidityMeasurement
   * humidity
-* Relay Switch - relaySwitch
-  * switch
-    * on
-    * off
 * ReleasableButton - releasableButton
   * released
 * Samsung TV - samsungTV
@@ -360,10 +309,6 @@ action: actionHealthCheck
     * setCodeLength
     * setEntryDelay
     * setExitDelay
-* Sensor - sensor
-  * -
-* Shock Sensor - shockSensor
-  * shock
 * Signal Strength - signalStrength
   * lqi
   * rssi
@@ -414,8 +359,6 @@ action: actionHealthCheck
   * thermostatOperatingState
 * Thermostat Schedule - thermostatSchedule
   * schedule
-* Thermostat Setpoint - thermostatSetpoint
-  * thermostatSetpoint
 * Three Axis - threeAxis
   * threeAxis
 * Timed Session - timedSession
@@ -428,8 +371,6 @@ action: actionHealthCheck
     * cancel
 * Tone - tone
   * -
-* Touch Sensor - touchSensor
-  * touch
 * TV - tv
   * channel
     * channelUp
@@ -443,30 +384,6 @@ action: actionHealthCheck
 	  * volumeDown
 * Temperature Measurement - temperatureMeasurement
   * temperature
-* Thermostat - thermostat
-  * coolingSetpoint
-  * heatingSetpoint
-  * schedule
-  * supportedThermostatFanModes
-  * supportedThermostatModes
-  * temperature
-  * thermostatFanMode
-  * thermostatMode
-  * thermostatOperatingState
-  * thermostatSetpoint
-       * auto
-        * cool
-		* emergencyHeat
-		* fanAuto
-		* fanCirculate
-		* fanOn
-		* heat
-		* off
-		* setCoolingSetpoint
-		* setHeatingSetpoint
-		* setSchedule
-		* setThermostatFanMode
-		* setThermostatMode
 * Ultraviolet Index - ultravioletIndex
   * ultravioletIndex
 * Valve - valve
