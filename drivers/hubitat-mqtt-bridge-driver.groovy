@@ -1,108 +1,340 @@
 /**
- *  MQTT Bridge
+ *  MQTT Link Driver
  *
- * 	Authors
- *   - st.john.johnson@gmail.com
- *   - jeremiah.wuenschel@gmail.com
- *   - john.eubanks@gmail.com
+ * MIT License
  *
- *  Copyright 2016
+ * Copyright (c) 2020 license@mydevbox.com
  *
- *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
- *  in compliance with the License. You may obtain a copy of the License at:
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
- *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
- *  for the specific language governing permissions and limitations under the License.
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
  */
 
 import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 
+public static String version() { return "v0.1.0" }
+public static String rootTopic() { return "hubitat" }
+
+//hubitat / {hub-name} / { device-name } / { device-capability } / STATE
+
 metadata {
-	definition (name: "MQTT Bridge", namespace: "hubitat", author: "St. John Johnson and Jeremiah Wuenschel and John Eubanks") {
+        definition(
+        	name: "MQTT Link Driver",
+        	namespace: "mydevbox",
+        	author: "Chris Lawson, et al",
+        	description: "A link between MQTT broker and MQTT Link app",
+        	iconUrl: "https://s3.amazonaws.com/smartapp-icons/Connections/Cat-Connections.png",
+        	iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Connections/Cat-Connections@2x.png",
+        	iconX3Url: "https://s3.amazonaws.com/smartapp-icons/Connections/Cat-Connections@3x.png"
+        ) {
 		capability "Notification"
-	}
 
-	preferences {
-		input("ip", "string",
-			title: "MQTT Bridge IP Address",
-			description: "MQTT Bridge IP Address",
-			required: true,
-			displayDuringSetup: true
-		)
-		input("port", "string",
-			title: "MQTT Bridge Port",
-			description: "MQTT Bridge Port",
-			required: true,
-			displayDuringSetup: true
-		)
-		input("mac", "string",
-			title: "MQTT Bridge MAC Address",
-			description: "MQTT Bridge MAC Address",
-			required: true,
-			displayDuringSetup: true
-		)
-	}
+		preferences {
+			input(
+		        name: "brokerIp", 
+		        type: "string",
+				title: "MQTT Broker IP Address",
+				description: "e.g. 192.168.1.200",
+				required: true,
+				displayDuringSetup: true
+			)
+			input(
+		        name: "brokerPort", 
+		        type: "string",
+				title: "MQTT Broker Port",
+				description: "e.g. 1883",
+				required: true,
+				displayDuringSetup: true
+			)
 
-	simulator {}
-
-	tiles {
-		valueTile("basic", "device.ip", width: 3, height: 2) {
-			state("basic", label:'OK')
+		    input(
+		        name: "brokerUser", 
+		        type: "string",
+				title: "MQTT Broker Username",
+				description: "e.g. mqtt_user",
+				required: false,
+				displayDuringSetup: true
+			)
+		    input(
+		        name: "brokerPassword", 
+		        type: "password",
+				title: "MQTT Broker Password",
+				description: "e.g. ^L85er1Z7g&%2En!",
+				required: false,
+				displayDuringSetup: true
+			)
+            input(
+                name: "sendPayload", 
+                type: "bool",
+                title: "Send full payload messages on device events", 
+                required: false, 
+                default: false
+            )
+            input(
+                name: "debugLogging", 
+                type: "bool", 
+                title: "Enable debug logging", 
+                required: false, 
+                default: false
+            )
 		}
-		main "basic"
-	}
+
+        // Provided for broker setup and troubleshooting
+		command "publish", [[name:"topic*",type:"STRING", title:"test",description:"Topic"],[name:"message",type:"STRING", description:"Message"]]
+		command "subscribe",[[name:"topic*",type:"STRING", description:"Topic"]]
+		command "unsubscribe",[[name:"topic*",type:"STRING", description:"Topic"]]
+		command "connect"
+		command "disconnect"
+    }
 }
 
-// Store the MAC address as the device ID so that it can talk to Hubita Elevation
-def setNetworkAddress() {
-	// Setting Network Device Id
-	def hex = "$settings.mac".toUpperCase().replaceAll(':', '')
-	if (device.deviceNetworkId != "$hex") {
-		device.deviceNetworkId = "$hex"
-		log.debug "Device Network Id set to ${device.deviceNetworkId}"
-	}
+void initialize() {
+    debug("Initializing driver...")
+    
+    try {   
+        interfaces.mqtt.connect(getBrokerUri(),
+                           "hubitat_${getHubId()}", 
+                           settings?.brokerUser, 
+                           settings?.brokerPassword, 
+                           lastWillTopic: "${getTopicPrefix()}LWT",
+                           lastWillQos: 0, 
+                           lastWillMessage: "offline", 
+                           lastWillRetain: true)
+       
+        // delay for connection
+        pauseExecution(1000)
+        
+    } catch(Exception e) {
+        error("[initialize] ${e}")
+    }
 }
 
-// Parse events from the Bridge
-def parse(String description) {
-	setNetworkAddress()
+// ========================================================
+// MQTT COMMANDS
+// ========================================================
 
-	log.debug "Parsing '${description}'"
-	def msg = parseLanMessage(description)
-
-	return createEvent(name: "message", value: new JsonOutput().toJson(msg.data))
+def publish(topic, payload) {
+    publishMqtt(topic, payload)
 }
 
-// Send message to the Bridge
+def subscribe(topic) {
+    if (notMqttConnected()) {
+        connect()
+    }
+
+    debug("[subscribe] full topic: ${getTopicPrefix()}${topic}")
+    interfaces.mqtt.subscribe("${getTopicPrefix()}${topic}")
+}
+
+def unsubscribe(topic) {
+    if (notMqttConnected()) {
+        connect()
+    }
+    
+    debug("[unsubscribe] full topic: ${getTopicPrefix()}${topic}")
+    interfaces.mqtt.unsubscribe("${getTopicPrefix()}${topic}")
+}
+
+def connect() {
+    initialize()
+    connected()
+}
+
+def disconnect() {
+    try {
+        interfaces.mqtt.disconnect()
+        disconnected()
+    } catch(e) {
+        warn("Disconnection from broker failed", ${e.message})
+        if (interfaces.mqtt.isConnected()) connected()
+    }
+}
+
+// ========================================================
+// MQTT LINK APP MESSAGE HANDLER
+// ========================================================
+
+// Device event notification from MQTT Link app via mqttLink.deviceNotification() 
 def deviceNotification(message) {
-	if (device.hub == null)	{
-		log.error "Hub is null, must set the hub in the device settings so we can get local hub IP and port"
-		return
-	}
-
-	log.debug "Sending '${message}' to device"
-	setNetworkAddress()
-
-	def slurper = new JsonSlurper()
+    debug("[deviceNotification] Received message from MQTT Link app: '${message}'")
+    
+    
+    def slurper = new JsonSlurper()
 	def parsed = slurper.parseText(message)
-
+    
+    // Scheduled event in MQTT Broker app that renews device topic subs 
 	if (parsed.path == '/subscribe') {
-		parsed.body.callback = device.hub.getDataValue("localIP") + ":" + device.hub.getDataValue("localSrvPortTCP")
+        deviceSubscribe(parsed)
 	}
+    
+    // Device event 
+	if (parsed.path == '/push') {      
+        sendDeviceEvent(parsed.body)
+	}
+}
 
-	def headers = [:]
-	headers.put("HOST", "$ip:$port")
-	headers.put("Content-Type", "application/json")
+def deviceSubscribe(message) {
+    
+    // Clear all prior subsciptions
+    if (message.update) {
+        unsubscribe("#")
+    }
+    
+    message.body.devices.each { key, capability ->
+		capability.each { attribute ->
+            def normalizedAttrib = normalize(attribute)
+            def topic = "${normalizedAttrib}/${key}".toString()
+            
+            debug("[deviceSubscribe] topic: ${topic} attribute: ${attribute}")
+            subscribe(topic)
+		}
+	}
+}
 
-	def hubAction = new hubitat.device.HubAction(
-		method: "POST",
-		path: parsed.path,
-		headers: headers,
-		body: parsed.body
-	)
-	hubAction
+def sendDeviceEvent(message) {
+    topic = "${message.normalizedId}/"
+
+    if (mqttConnected) {
+        connected()
+    }
+    
+    // Send command value only
+    publishMqtt("${topic}${message.name}", message.value)
+    
+    if (settings.sendPayload) {
+        // Send detailed event object
+        publishMqtt("${topic}payload", JsonOutput.toJson(message))
+    }
+}
+
+// ========================================================
+// MQTT METHODS
+// ========================================================
+
+// Parse incoming message from the MQTT broker
+def parse(String event) {
+    def message = interfaces.mqtt.parseMessage(event)  
+    def (name, hub, device, type) = message.topic.tokenize( '/' )
+    
+    debug("[parse] Received MQTT message: ${message}")
+    
+    def json = new groovy.json.JsonOutput().toJson([
+        device: device,
+        type: type,
+        value: message.payload
+	])
+    
+    return createEvent(name: "message", value: json, displayed: false)
+}
+
+def mqttClientStatus(status) {
+    debug("[mqttClientStatus] status: ${status}")
+}
+
+def publishMqtt(topic, payload, qos = 0, retained = false) {
+    if (notMqttConnected()) {
+        initialize()
+    }
+    
+    def pubTopic = "${getTopicPrefix()}${topic}"
+
+    try {
+        interfaces.mqtt.publish("${pubTopic}", payload, qos, retained)
+        debug("[publishMqtt] topic: ${pubTopic} payload: ${payload}")
+        
+    } catch (Exception e) {
+        error("[publishMqtt] Unable to publish message: ${e}")
+    }
+}
+
+// ========================================================
+// ANNOUNCEMENTS
+// ========================================================
+
+def connected() {
+    info("[connected] Connected to broker")
+    sendEvent (name: "connectionState", value: "connected")
+    announceLwtStatus("online")
+}
+
+def disconnected() {
+    info("[disconnected] Disconnected from broker")
+    sendEvent (name: "connectionState", value: "disconnected")
+    announceLwtStatus("offline")
+}
+
+def announceLwtStatus(String status) {
+    publishMqtt("LWT", status)
+    publishMqtt("FW", "${location.hub.firmwareVersionString}")
+    publishMqtt("IP", "${location.hub.localIP}")
+    publishMqtt("UPTIME", "${location.hub.uptime}")
+}
+
+// ========================================================
+// HELPERS
+// ========================================================
+
+def normalize(name) {
+    return name.replaceAll("[^a-zA-Z0-9]+","-").toLowerCase()
+}
+
+def getBrokerUri() {        
+    return "tcp://${settings?.brokerIp}:${settings?.brokerPort}"
+}
+
+def getHubId() {
+    def hub = location.hubs[0]
+    return "${hub.name}-${hub.hardwareID}".toLowerCase()
+}
+
+def getTopicPrefix() {
+    return "${rootTopic()}/${getHubId()}/"
+}
+
+def mqttConnected() {
+    return interfaces.mqtt.isConnected()
+}
+
+def notMqttConnected() {
+    return !mqttConnected()
+}
+
+// ========================================================
+// LOGGING
+// ========================================================
+
+def debug(msg) {
+	if (debugLogging) {
+    	log.debug msg
+    }
+}
+
+def info(msg) {
+    log.info msg
+}
+
+def warn(msg) {
+    log.warn msg
+}
+
+def error(msg) {
+    log.error msg
 }

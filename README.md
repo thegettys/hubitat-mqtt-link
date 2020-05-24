@@ -1,170 +1,502 @@
-# Hubitat Elevation MQTT Bridge
+# Hubitat Elevation MQTT Link
+
 ***System to share and control Hubitat Elevation device states in MQTT.***
 
-Original Author:
-https://hub.docker.com/r/stjohnjohnson/hubitat-mqtt-bridge/
+MQTT Link is a derivative of  [MQTT Bridge](https://github.com/jeubanks/hubitat-mqtt-bridge) for Hubitat released by jeubanks who derived it from [MQTT Bridge](https://github.com/stjohnjohnson/smartthings-mqtt-bridge) for SmartThings by stjohnjohnson.
 
-I highly recommend looking at the original github above as it may have more information
-that I have left out, or removed as it is not relevant.  For the time being I have left
-the links to the docker images and setup to the original as they do work.  As I rebuild
-and customize I will update this README.
+Each of the prior MQTT Bridge releases set out to fill a gap in SmartThings and Hubitat as each platform lacked a native MQTT client for which to interface with an MQTT broker. Both releases relied upon a separate, self-hosted nodejs _bridge_ app that ran outside of
 
-This project was spawned by the desire to [control hubitat and Hubitat Elevation from within Home Assistant][ha-issue].  Since Home Assistant already supports MQTT.  The original authors chose to go and build a bridge between hubitat and MQTT and I have borrowed their work.
+the platform and provided both a client to receive MQTT messages and a client to translate those MQTT messages to REST calls which were both platforms offered as integration points.
+
+Since that time the Hubitat platform has introduced an MQTT client capable of interfacing with an MQTT broker without the need for external bridges.
+
+The MQTT Link project builds upon the methods established in the prior works by refactoring the Driver code to utilize the built-in Hubitat MQTT client and to make improvements to the App code.
+
+A big thanks to stjohnjohnson, jeubanks and those to blazed the trails to make this project possible.
+
+## MQTT
+
+The MQTT Link apps provide for transit of Hubitat device-specific messages to and from the configured MQTT broker. To remain versatile and lean, no assumptions or impositions were made about the consumers of the published events however, contracts were needed to ensure proper integration with those consumers.
+
+Following are details about the topic format and messages used to communicate to and from the hub devices.
+
+### Topics
+
+The MQTT topics apply the following pattern.
+* prefix - Hardcoded to `hubitat`
+* hub name & id - Combines the hub location name with the hub id
+* normalized device id - Combines the device name and id
+* normalized capability - Provides
+
+Example: `hubitat/home-000d/hue-color-lamp-1-738/switch`
+
+### Messages
+
+Each device has a set of capabilities, attributes and commands that it supports but not every device has support for all three areas. Triggered hub events are converted to a standardized message matching the event that occurred. For example, when light is turned on or off or a door is opened or closed, an MQTT message will be sent to the broker with details about the device and event so that consumers can take the appropriate action.
+
+See the Supported Capabilities section for details on message details for each capability.
 
 
-# Architecture
+#### Outbound
 
-![Architecture](https://www.websequencediagrams.com/cgi-bin/cdraw?lz=dGl0bGUgU21hcnRUaGluZ3MgPC0-IE1RVFQgCgpwYXJ0aWNpcGFudCBaV2F2ZSBMaWdodAoKAAcGTW90aW9uIERldGVjdG9yLT5TVCBIdWI6ABEIRXZlbnQgKFotV2F2ZSkKABgGACEFTVFUVEJyaWRnZSBBcHA6IERldmljZSBDaGFuZ2UAMAhHcm9vdnkAMwUAIg4AMxAAOAY6IE1lc3NhADYKSlNPTgAuEABjBi0-AHYLU2VyADkGAHAVUkVTVCkKAB0SAD0GIEJyb2tlcgCBaQk9IHRydWUgKE1RVFQpCgAyBQAcBwBdFgCCSgUgPSAib24iAC4IAFgUAIFaFgCBFhsAgWAWAIJnEwCCESMAgmoIAINWBVR1cm4AgTAHT24AgxcNAINXBQCEGwsAgVYIT24Ag3oJ&s=default)
+Messages resulting from hub events mostly report state changes in order to inform subscribers to those events.
 
-# MQTT Events
+* Light was turned on
 
-Events about a device (power, level, switch) are sent to MQTT using the following format:
+Topic: `hubitat/home-000d/hue-color-lamp-1-738/switch`
+Message: `on`
 
-```
-{PREFACE}/{DEVICE_NAME}/${ATTRIBUTE}
-```
-__PREFACE is defined as "hubitat" by default in your configuration__
+* Light was turned off
 
-For example, my Dimmer Z-Wave Switch is called "Family Room Lights" in Hubitat Elevation.  The following topics are published:
+Topic: `hubitat/home-000d/hue-color-lamp-1-738/switch`
+Message: `off`
 
-```
-# Brightness (0-99)
-hubitat/Family Room Lights/level
-# Switch State (on|off)
-hubitat/Family Room Lights/switch
-```
+#### Inbound 
 
-The Bridge also subscribes to changes in these topics, so that you can update the device via MQTT.
+For those devices that support commands, MQTT messages can be authored be downstream consumers so that  those commands are executed on the target device.
 
-```
-$ mqtt pub -t 'hubitat/Family Room Lights/switch'  -m 'off'
-# Light goes off in Hubitat Elevation
-```
+* Message to lock the front door
 
-# Configuration
+Topic: `hubitat/home-000d/august-pro-z-wave-lock-324/lock`
+Message: `lock`
 
-The bridge has one yaml file for configuration:
+* Message to unlock the front door
 
-```
----
-mqtt:
-    # Specify your MQTT Broker URL here
-    host: mqtt://localhost
-    # Example from CloudMQTT
-    # host: mqtt:///m10.cloudmqtt.com:19427
+Topic: `hubitat/home-000d/august-pro-z-wave-lock-324/lock`
+Message: `unlock`
+  
 
-    # Preface for the topics $PREFACE/$DEVICE_NAME/$PROPERTY
-    preface: hubitat
+### Last Will
 
-    # The write and read suffixes need to be different to be able 
-    # to differentiate when state comes from Hubitat Elevation or 
-    # when its coming from the physical device/application
+When the client establishes a connection to the broker it sets an default `LWT` topic to `offline` and then pushes `online` shortly thereafter.
 
-    # Suffix for the topics that receive state from Hubitat Elevation $PREFACE/$DEVICE_NAME/$PROPERTY/$STATE_READ_SUFFIX
-    # Your physical device or application should subscribe to this topic to get updated status from Hubitat Elevation
-    # state_read_suffix: state
-
-    # Suffix for the topics to send state back to Hubitat Elevation $PREFACE/$DEVICE_NAME/$PROPERTY/$STATE_WRITE_SUFFIX
-    # your physical device or application should write to this topic to update the state of Hubitat Elevation devices that support setStatus
-    # state_write_suffix: set_state
-
-    # Suffix for the command topics $PREFACE/$DEVICE_NAME/$PROPERTY/$COMMAND_SUFFIX
-    # command_suffix: cmd
-
-    # Other optional settings from https://www.npmjs.com/package/mqtt#mqttclientstreambuilder-options
-    # username: AzureDiamond
-    # password: hunter2
-
-    # MQTT retains state changes be default, retain mode can be disabled:
-    # retain: false
-
-# Port number to listen on
-port: 8080
+In addition to `LWT`, the client also sends `UPTIME`, `FW` and `IP` containing uptime, current firmware version and IP address of the hub.
 
 ```
-
-# Installation
-
-There are two ways to use this, Docker (self-contained) or NPM (can run on Raspberry Pi).
-
-## Docker
-
-Docker will automatically download the image, but you can "install" it or "update" it via `docker pull`:
+hubitat:
+    home-000d:
+        LWT: online
+        FW: 2.2.0.126
+        IP: 192.168.1.100
+        UPTIME: 82815
 ```
-$ docker pull jeubanks/hubitat-mqtt-bridge
-```
+## Installation & Configuration
 
-To run it (using `/opt/mqtt-bridge` as your config directory and `8080` as the port):
-```
-$ docker run \
-    -d \
-    --name="mqtt-bridge" \
-    -v /opt/mqtt-bridge:/config \
-    -p 8080:8080 \
-    jeubanks/hubitat-mqtt-bridge
-```
+MQTT Link consists of both a driver and app. Both must be installed and configured prior to their use.
 
-To restart it:
-```
-$ docker restart mqtt-bridge
-```
+### Driver
 
-## Usage
-1. Customize the MQTT host
-    ```
-    $ vi config.yml
-    # Restart the service to get the latest changes
-    ```
+The driver app must be installed first because the App depends upon it. The driver connects to the configured MQTT broker and sends out messages when new hub events occur and receives messages from external client events such has those from Home Assistant.
 
-2. Install the [Driver][dt] in the Hubitat Web Interface [Drivers Code] using "New Driver"
+The driver provides a number of commands that are useful for troubleshooting but they are not needed for normal operation of the driver code.
 
-3. Add the "MQTT Device" device in the [Devices]. Enter MQTT Device (or whatever) for the name. Select "MQTT Bridge" for the type. The other values are up to you.
-4. Configure the "MQTT Device" in the [Devices] with the IP Address, Port, and MAC Address of the machine running the Docker container
-4. Install the [App][app] in [Apps Code] using "New App"
-5. Enable the App in [Apps] using "Load New App" and select MQTT Bridge
-6. Click MQTT Bridge in the list of Apps
-7. At the top of notification (this is to be updated)
-8. Configure the devices you want to send to the MQTT Bridge.
-9. At the bottom select the MQTT Bridge to send events to.
-10. Save
+* Connect - Connects to the configured broker
+* Disconnect - Disconnects from the configured broker
+* Device Notification - For internal use by the app
 
-## Advanced
-### Docker Compose
+The following commands allow for subscribing and publishing to MQTT topics. The driver automatically prefixes all topics with the following prefix within the code to ensure unique topics for each hub.
 
-If you want to bundle everything together, you can use [Docker Compose][docker-compose].
+`/hubitat/{hub-name}-{hub-id}/` 
+e.g. 
+`/hubitat/home-893/`
 
-Just create a file called `docker-compose.yml` with this contents:
-```yaml
-mqtt:
-    image: matteocollina/mosca
-    ports:
-        - 1883:1883
+* Subscribe - Subscribes to the provided topic. 
+	* e.g. `device` becomes `/hubitat/home-893/device`
+* Unsubscribe - Unsubscribe from the provided topic. 
+	* e.g `#` becomes `/hubitat/home-893/#`
+* Publish - Publish message to provided topic.
+	*  e.g. `switch` msg: `on` becomes `/hubitat/home-893/switch` msg: `on`
 
-mqttbridge:
-    image: jeubanks/hubitat-mqtt-bridge
-    volumes:
-        - ./mqtt-bridge:/config
-    ports:
-        - 8080:8080
-    links:
-        - mqtt
+Follow the procedure for installing user driver code on Hubitat and enter the following details.
 
-homeassistant:
-    image: balloob/home-assistant
-    ports:
-        - 80:80
-    volumes:
-        - ./home-assistant:/config
-        - /etc/localtime:/etc/localtime:ro
-    links:
-        - mqtt
-```
+* MQTT Broker IP Address - Provide the IP address of the target MQTT broker
+* MQTT Broker Port - Provide the port for the broker. This is typically 1883
+* MQTT Broker Username - Provide username
+* MQTT Broker Password - Provide password
+* Type - MQTT Link Driver
 
-This creates a directory called `./mqtt-bridge/` to store configuration for the bridge.  It also creates a directory `./home-assistant` to store configuration for HA.
+_optional_
 
+* Send full payload messages on device events - When ON the driver will send a detailed payload of the fired event
+* Enable debug logging - When ON the driver will log debug statements for troubleshooting
 
+### App 
 
- [dt]: https://github.com/jeubanks/hubitat-mqtt-bridge/blob/master/drivers/hubitat-mqtt-bridge-driver.groovy
- [app]: https://github.com/jeubanks/hubitat-mqtt-bridge/blob/master/apps/hubitat-mqtt-bridge-app.groovy
- [ha-issue]: https://github.com/balloob/home-assistant/issues/604
- [docker-compose]: https://docs.docker.com/compose/
+The app is responsible for listening to subscribed hub events that it relays to the driver to publish to the MQTT broker. It also listens for inbound messages from the driver that it then translates to a hub event.
+
+Follow the procedure for installing apps code on Hubitat and specify the following details.
+
+#### Select Devices and Driver
+
+* Select devices - Expand and select the devices that the app should monitor for. Note that the capabilities for each of the selected devices are selected on the next page.
+* Notify this driver - Example and select the MQTT Link Driver device that was installed previously.
+
+_optional_
+
+* Enable debug logging - When ON the driver will log debug statements for troubleshooting
+
+#### Device Capabilities
+
+Each of the devices chosen on the prior page are listed on this page and include a dropdown containing the capabilities associated with that device. This page also lists the normalized topic for the device.
+
+* Click to set - Expand and select the associated device capabilities that the app should monitor for.
+
+## Supported Capabilities
+Following is an inclusive list of device capabilities, attributes and commands recognized by MQTT Link. 
+
+Limited access to devices within each of these categories made it impossible to test each combination list. Please report any missing or erroneous details so that they can be corrected within the code. 
+
+[Hubitat Capabilities List]([https://docs.hubitat.com/index.php?title=Driver_Capability_List](https://docs.hubitat.com/index.php?title=Driver_Capability_List)) | [SmartThings Capabilities List](https://docs.smartthings.com/en/latest/capabilities-reference.html)
+* Acceleration Sensor - accelerationSensor
+	* acceleration
+* Actuator - actuator
+	* -
+* Alarm - alarm
+	* alarm
+		* siren
+		* strobe
+		* both
+		* off
+* Audio Notification - audioNotification
+	* -
+		* playText
+		* playTextAndRestore
+		* playTextAndResume
+		* playTrack
+		* playTrackAndResume
+		* playTrackAndRestore
+* Audio Volume - audioVolume
+	* mute
+		* mute
+		* unmute
+	* volume
+		* setVolume
+		* volumeUp
+		* volumeDown
+* Battery - battery
+	* battery
+* Beacon - beacon
+	* presence
+* Bulb - bulb
+	* switch
+		* on
+		* off
+* Carbon Dioxide Measurement - carbonDioxideMeasurement
+	* carbonDioxide
+* Carbon Monoxide Detector - carbonMonoxideDetector
+	* carbonMonoxide
+* Change Level - changeLevel
+	* -
+		* startLevelChange
+		* stopLevelChange
+* Chime - chime
+	* soundEffects
+		* playSound
+		* stop
+	* soundName
+	* status
+* Color Control - colorControl
+	* color
+		* setColor
+	* hue
+		* setHue
+	* saturation
+		* setSaturation
+* Color Mode - colorMode
+  * colorMode
+* Color Temperature - colorTemperature
+  * colorTemperature
+* Configuration - configuration
+  * -
+* Consumable - consumable
+  * consumableStatus
+* Contact Sensor - contactSensor
+  * contact
+* Door Control - doorControl
+  * door
+	  * open
+	  * close
+* DoubleTapable Button - doubleTapableButton
+  * doubleTapped
+* Energy Meter - energyMeter
+  * energy
+* Estimated Time Of Arrival - estimatedTimeOfArrival
+  * eta
+* Fan Control - fanControl
+  * speed
+* Filter Status - filterStatus
+  * filterStatus
+* Garage Door Control - garageDoor
+  * door
+	  * open
+	  * close
+* Health Check - healthCheck
+  * checkInterval
+action: actionHealthCheck
+  * - 
+* Illuminance Measurement - illuminanceMeasurement
+  * illuminance
+* Image Capture - imageCapture
+  * image
+* Indicator - indicator
+  * indicatorStatus
+    * indicatorNever
+    * indicatorWhenOff
+    * indicatorWhenOn
+* Light - light
+  * switch
+    * on
+    * off
+* Light Effects - lightEffects
+  * effectName
+  * lightEffects
+	  * setEffect
+	  * setNextEffect
+	  * setPreviousEffect
+* Location Mode - locationMode
+  * mode
+* Lock Codes - lock
+  * lock
+    * lock
+    * unlock
+* Lock Codes - lockCode
+  * codeChanged
+  * codeLength
+  * lockCodes
+    * deleteCode
+    * getCodes
+    * setCode
+    * setCodeLength
+  * maxCodes
+* Media Controller - mediaController
+  * activities
+  * currentActivity
+* Momentary - momentary
+  * - 
+* Motion Sensor - motionSensor
+  * motion
+    * active
+    * inactive
+* Music Player - musicPlayer
+  * level
+    * setLevel
+  * mute
+    * mute
+    * unmute
+  * status
+    * nextTrack
+    * pause
+	* play
+	* playTrack
+	* previousTrack
+	* restoreTrack
+	* resumeTrack
+	* setTrack
+	* stop
+    * trackData
+    * trackDescription
+* Notification - notification
+  * - 
+* Outlet - outlet
+  * switch
+    * on
+    * off
+* pH Measurement - pHMeasurement
+  * pH
+* Polling - polling
+  * - 
+* Power Meter - powerMeter
+  * power
+* Power Source - powerSource
+  * powerSource
+* Presence Sensor - presenceSensor
+  * presence
+    * present
+    * not present
+* PressureMeasurement - pressureMeasurement
+  * pressure
+* Refresh - refresh
+  * -
+* Pushable Button - pushableButton
+  * numberOfButtons
+  * pushed
+* Relative Humidity Measurement - relativeHumidityMeasurement
+  * humidity
+* Relay Switch - relaySwitch
+  * switch
+    * on
+    * off
+* ReleasableButton - releasableButton
+  * released
+* Samsung TV - samsungTV
+  * messageButton
+  * mute
+  * pictureMode
+  * soundMode
+  * switch
+  * volume
+    * mute
+    * off
+    * on
+    * setPictureMode
+    * setSoundMode
+    * setVolume
+    * showMessage
+    * unmute
+    * volumeDown
+    * volumeUp
+* Security Keypad - securityKeypad
+  * codeChanged
+  * codeLength
+  * lockCodes
+  * maxCodes
+  * securityKeypad
+    * armAway
+    * armHome
+    * deleteCode
+    * disarm
+    * getCodes
+    * setCode
+    * setCodeLength
+    * setEntryDelay
+    * setExitDelay
+* Sensor - sensor
+  * -
+* Shock Sensor - shockSensor
+  * shock
+* Signal Strength - signalStrength
+  * lqi
+  * rssi
+* Sleep Sensor - sleepSensor
+  * sleeping
+* Smoke Detector - smokeDetector
+  * smoke
+* Sound Pressure Level - soundPressureLevel
+  * soundPressureLevel
+* Sound Sensor - soundSensor
+  * sound
+* Speech Recognition - speechRecognition
+  * phraseSpoken
+* Speech Synthesis - speechSynthesis
+  * - 
+* Step Sensor - stepSensor
+  * goal
+  * steps
+* Switch Level - switchLevel
+  * level
+* Switch - switch
+  * switch
+    * on
+    * off
+* Tamper Alert - tamperAlert
+  * tamper
+* Temperature Measurement - temperatureSensor
+  * temperature
+* Thermostat Cooling Setpoint - thermostatCoolingSetpoint
+  * coolingSetpoint
+* Thermostat Fan Mode - thermostatFanMode
+  * thermostatFanMode
+    * fanAuto
+    * fanCirculate
+    * fanOn
+    * setThermostatFanMode
+* Thermostat Heating Setpoint - thermostatHeatingSetpoint
+  * heatingSetpoint
+* Thermostat Mode - thermostatMode
+  * thermostatMode
+    * auto
+    * cool
+    * emergencyHeat
+    * heat
+    * off
+    * setThermostatMode
+* Thermostat Operating State - thermostatOperatingState
+  * thermostatOperatingState
+* Thermostat Schedule - thermostatSchedule
+  * schedule
+* Thermostat Setpoint - thermostatSetpoint
+  * thermostatSetpoint
+* Three Axis - threeAxis
+  * threeAxis
+* Timed Session - timedSession
+  * sessionStatus
+  * timeRemaining
+    * setTimeRemaining
+    * start
+    * stop
+    * pause
+    * cancel
+* Tone - tone
+  * -
+* Touch Sensor - touchSensor
+  * touch
+* TV - tv
+  * channel
+    * channelUp
+    * channelDown
+  * movieMode
+  * picture
+  * power
+  * sound
+  * volume
+	  * volumeUp
+	  * volumeDown
+* Temperature Measurement - temperatureMeasurement
+  * temperature
+* Thermostat - thermostat
+  * coolingSetpoint
+  * heatingSetpoint
+  * schedule
+  * supportedThermostatFanModes
+  * supportedThermostatModes
+  * temperature
+  * thermostatFanMode
+  * thermostatMode
+  * thermostatOperatingState
+  * thermostatSetpoint
+       * auto
+        * cool
+		* emergencyHeat
+		* fanAuto
+		* fanCirculate
+		* fanOn
+		* heat
+		* off
+		* setCoolingSetpoint
+		* setHeatingSetpoint
+		* setSchedule
+		* setThermostatFanMode
+		* setThermostatMode
+* Ultraviolet Index - ultravioletIndex
+  * ultravioletIndex
+* Valve - valve
+  * contact
+    * open
+    * closed
+  * valve
+    * open
+    * closed
+* Video Camera - videoCamera
+  * camera
+    * flip
+  * mute
+    * mute
+    * unmute
+  * settings
+  * statusMessage
+    * on
+    * off
+* Video Capture - videoCapture
+  * clip
+* Window Shade - windowShades
+  * windowShade
+* Water Sensor - waterSensor
+  * water
+* Window Shade - windowShade
+  * windowShade
+    * close
+    * open
+    * presetPosition
+* ZW Multichannel - zwMultichannel
+  * epEvent
+  * epInfo

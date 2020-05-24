@@ -1,69 +1,142 @@
 /**
- *  MQTT Bridge
+ *  MQTT Link
  *
- *  Authors
- *   - st.john.johnson@gmail.com
- *   - jeremiah.wuenschel@gmail.com
+ * MIT License
  *
- *  Copyright 2016
+ * Copyright (c) 2020 license@mydevbox.com
  *
- *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
- *  in compliance with the License. You may obtain a copy of the License at:
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
- *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
- *  for the specific language governing permissions and limitations under the License.
- *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ * 
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
  */
 
 import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 import groovy.transform.Field
 
+public static String version() { return "v0.1.0" }
+public static String rootTopic() { return "hubitat" }
+
 definition(
-	name: "MQTT Bridge",
-	namespace: "hubitat",
-	author: "St. John Johnson and Jeremiah Wuenschel and John Eubanks",
-	description: "A bridge between Hubitat and MQTT",
-	category: "My Apps",
+	name: "MQTT Link",
+	namespace: "mydevbox",
+	author: "Chris Lawson, et al",
+	description: "A link between Hubitat device events and MQTT Link Driver",
 	iconUrl: "https://s3.amazonaws.com/smartapp-icons/Connections/Cat-Connections.png",
 	iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Connections/Cat-Connections@2x.png",
 	iconX3Url: "https://s3.amazonaws.com/smartapp-icons/Connections/Cat-Connections@3x.png"
 )
 
 preferences {
-	section("Send Notifications?") {
-		input("recipients", "contact", title: "Send notifications to", multiple: true, required: false)
-	}
-
-	section ("Input") {
-		CAPABILITY_MAP.each { key, capability ->
-			input key, capability["capability"], title: capability["name"], multiple: true, required: false
-		}
-	}
-
-	section ("Bridge") {
-		input "bridge", "capability.notification", title: "Notify this Bridge", required: false, multiple: true
-	}
+    page(name: "devicePage", nextPage: "capabilitiesPage", uninstall: true) {
+        section("Select the hub devices that MQTT Link should monitor and control.", hideable: false) {
+            input (
+                name: "selectedDevices", 
+                type: "capability.*", 
+                title: "Select devices", 
+                multiple: true,
+                required: true,
+                submitOnChange: false
+            )
+        }
+        section ("<h3>Specify MQTT Link Driver device</h3>") {
+            paragraph "The MQTT Link Driver must be set up prior to the MQTT Link app otherwise the driver will not show up here."
+		    input (
+                name: "mqttLink", 
+                type: "capability.notification", 
+                title: "Notify this driver", 
+                required: true, 
+                multiple: false,
+                submitOnChange: false
+            )
+    	}
+        section("Debug Settings") {
+            input("debugLogging", "bool", title: "Enable debug logging", required: false, default:false) 
+        }
+    }
+    page(name: "capabilitiesPage", install: true)
 }
 
-/*
-	def ROUTINES = location.helloHome?.getPhrases()*.label
-	if (ROUTINES) {
-		ROUTINES.sort()
-	}
+def capabilitiesPage() {
+    dynamicPage(name: "capabilitiesPage") {        
+        section ("<h2>Specify Exposed Capabilities per Device</h2>") {
+            paragraph """<style>.pill {border-radius:4px;background-color:#337ab7;color:#fff;padding:10px 15px;
+                font-weight:bold;} .label {font-family: Helvetica,Arial,sans-serif;background-color: #5bc0de;
+                display: inline;padding: .2em .6em .3em;font-size: 75%;font-weight: 700;line-height: 1;color: 
+                #fff;text-align: center;white-space: nowrap;vertical-align: baseline;
+                border-radius: .25em; }</style>""".stripMargin()
 
-	def MODES = location.modes
-	if (MODES) {
-		MODES.sort()
-	}
-*/
+            // Build normalized list of selected device names 
+            def selectedList = []
+            selectedDevices.each {
+                device -> selectedList.add(normalizeId(device))
+            }
+            state.selectedList = selectedList
+
+            // Remove deselected device capabilities
+            settings.each { setting ->
+                if (setting.value.class == java.util.ArrayList) {
+                    if (!state.selectedList.contains(setting.key)) {
+                        app.removeSetting(setting.key)
+                    }
+                }
+            }
+            
+            // Build normalized list of selected device names 
+            def selectedLookup = [:]
+            selectedDevices.each {
+                device -> selectedLookup.put(normalizeId(device), device.getDisplayName())
+            }
+            state.selectedLookup = selectedLookup
+            
+            // List selected devices with capabilities chooser
+            selectedDevices.sort{x -> x.getDisplayName()}.each { device ->
+
+                def selectedCapabilities = []
+                def deviceCapabilities = device.getCapabilities()
+                
+                deviceCapabilities.each { capability ->
+                    selectedCapabilities.add(capability.getName())
+                }
+                
+                def normalizeId = normalizeId(device)
+                
+                paragraph "<div class=\"pill\">${device.getDisplayName()}</div>"
+
+                input (
+                    name: normalizeId, 
+                    type: "enum",
+                    title: "",
+                    options: selectedCapabilities,
+                    multiple: true,
+                    submitOnChange: false
+                )
+                paragraph "<div><strong style=\"font-size: 85%;\">Topic </strong><div class=\"label\">${getTopicPrefix()}${normalizeId}</div></div><hr />"
+            }
+        }
+    }
+}
 
 // Massive lookup tree
 @Field CAPABILITY_MAP = [
-	"accelerationSensors": [
+	"accelerationSensor": [
 		name: "Acceleration Sensor",
 		capability: "capability.accelerationSensor",
 		attributes: [
@@ -76,21 +149,6 @@ preferences {
 		attributes: [
 		]
 	],
-	"airConditionerMode": [
-		name: "Air Conditioner Mode",
-		capability: "capability.airConditionerMode",
-		attributes: [
-			"airConditionerMode"
-		],
-		action: "actionAirConditionerMode"
-	],
-	"airQualitySensor": [
-		name: "Air Quality Sensor",
-		capability: "capability.airQualitySensor",
-		attributes: [
-			"airQuality"
-		]
-	],
 	"alarm": [
 		name: "Alarm",
 		capability: "capability.alarm",
@@ -99,14 +157,6 @@ preferences {
 		],
 		action: "actionAlarm"
 	],
-	"audioMute": [
-		name: "Audio Mute",
-		capability: "capability.audioMute",
-		attributes: [
-			"mute"
-		],
-		action: "actionAudioMute"
-	],
 	"audioNotification": [
 		name: "Audio Notification",
 		capability: "capability.audioNotification",
@@ -114,17 +164,11 @@ preferences {
 		],
 		action: "actionAudioNotification"
 	],
-	"audioTrackData": [
-		name: "Audio Track Data",
-		capability: "capability.audioTrackData",
-		attributes: [
-			"audioTrackData"
-		]
-	],
 	"audioVolume": [
 		name: "Audio Volume",
 		capability: "capability.audioVolume",
 		attributes: [
+            "mute",
 			"volume"
 		],
 		action: "actionAudioVolume"
@@ -143,12 +187,6 @@ preferences {
 			"presence"
 		]
 	],
-	"bridge": [
-		name: "bridge",
-		capability: "capability.bridge",
-		attributes: [
-		]
-	],
 	"bulb": [
 		name: "bulb",
 		capability: "capability.bulb",
@@ -156,28 +194,6 @@ preferences {
 			"switch"
 		],
 		action: "actionOnOff"
-	],
-	"pushablebutton": [
-		name: "Pushable Button",
-		capability: "capability.pushableButton",
-		attributes: [
-			"pushed",
-			"numberOfButtons"
-		]
-	],
-	"holdablebutton": [
-		name: "Holdable Button",
-		capability: "capability.holdableButton",
-		attributes: [
-			"held"
-		]
-	],
-	"doubletapablebutton": [
-		name: "DoubleTapable Button",
-		capability: "capability.doubleTapableButton",
-		attributes: [
-			"doubleTapped"
-		]
 	],
 	"carbonDioxideMeasurement": [
 		name: "Carbon Dioxide Measurement",
@@ -193,6 +209,23 @@ preferences {
 			"carbonMonoxide"
 		]
 	],
+	"changeLevel": [
+		name: "Change Level",
+		capability: "capability.changeLevel",
+		attributes: [
+		],
+		action: "actionChangeLevel"
+	],
+	"chime": [
+		name: "Chime",
+		capability: "capability.chime",
+		attributes: [
+			"soundEffects",
+			"soundName",
+			"status"
+		],
+		action: "actionChime"
+	],
 	"colorControl": [
 		name: "Color Control",
 		capability: "capability.colorControl",
@@ -202,6 +235,13 @@ preferences {
 			"saturation"
 		],
 		action: "actionColorControl"
+	],
+	"colorMode": [
+		name: "Color Mode",
+		capability: "capability.colorMode",
+		attributes: [
+			"colorMode"
+		]
 	],
 	"colorTemperature": [
 		name: "Color Temperature",
@@ -226,31 +266,12 @@ preferences {
 		],
 		action: "actionConsumable"
 	],
-	"contactSensors": [
+	"contactSensor": [
 		name: "Contact Sensor",
 		capability: "capability.contactSensor",
 		attributes: [
 			"contact"
 		]
-	],
-	"dishwasherMode": [
-		name: "Dishwasher Mode",
-		capability: "capability.dishwasherMode",
-		attributes: [
-			"dishwasherMode"
-		],
-		action: "actionDishwasherMode"
-	],
-	"dishwasherOperatingState": [
-		name: "Dishwasher Operating State",
-		capability: "capability.dishwasherOperatingState",
-		attributes: [
-			"machineState",
-			"supportedMachineStates",
-			"dishwasherJobState",
-			"remainingTime"
-		],
-		action: "actionDishwasherOperatingState"
 	],
 	"doorControl": [
 		name: "Door Control",
@@ -260,31 +281,11 @@ preferences {
 		],
 		action: "actionOpenClose"
 	],
-	"dryerMode": [
-		name: "Dryer Mode",
-		capability: "capability.dryerMode",
+	"doubleTapableButton": [
+		name: "DoubleTapable Button",
+		capability: "capability.doubleTapableButton",
 		attributes: [
-			"dryerMode"
-		],
-		action: "actionDryerMode"
-	],
-	"dryerOperatingState": [
-		name: "Dryer Operating State",
-		capability: "capability.dryerOperatingState",
-		attributes: [
-			"machineState",
-			"supportedMachineStates",
-			"dryerJobState",
-			"remainingTime"
-		],
-		action: "actionDryerOperatingState"
-	],
-	"dustSensor": [
-		name: "Dust Sensor",
-		capability: "capability.dustSensor",
-		attributes: [
-			"fineDustLevel",
-			"dustLevel"
+			"doubleTapped"
 		]
 	],
 	"energyMeter": [
@@ -301,21 +302,13 @@ preferences {
 			"eta"
 		]
 	],
-	"execute": [
-		name: "Execute",
-		capability: "capability.execute",
+	"fanControl": [
+		name: "Fan Control",
+		capability: "capability.fanControl",
 		attributes: [
-			"data"
+			"speed"
 		],
-		action: "actionExecute"
-	],
-	"fanSpeed": [
-		name: "Fan Speed",
-		capability: "capability.fanSpeed",
-		attributes: [
-			"fanSpeed"
-		],
-		action: "actionFanSpeed"
+        action: "actionFanControl"
 	],
 	"filterStatus": [
 		name: "Filter Status",
@@ -324,7 +317,7 @@ preferences {
 			"filterStatus"
 		]
 	],
-	"garageDoors": [
+	"garageDoor": [
 		name: "Garage Door Control",
 		capability: "capability.garageDoorControl",
 		attributes: [
@@ -332,27 +325,13 @@ preferences {
 		],
 		action: "actionOpenClose"
 	],
-	"geolocation": [
-		name: "Geolocation",
-		capability: "capability.geolocation",
+	"healthCheck": [
+		name: "Health Check",
+		capability: "capability.healthCheck",
 		attributes: [
-			"latitude",
-			"longitude",
-			"method",
-			"accuracy",
-			"altitudeAccuracy",
-			"heading",
-			"speed",
-			"lastUpdateTime"
-		]
-	],
-	"holdableButton": [
-		name: "Holdable Button",
-		capability: "capability.holdableButton",
-		attributes: [
-			"button",
-			"numberOfButtons"
-		]
+			"checkInterval"
+		],
+		action: "actionHealthCheck"
 	],
 	"illuminanceMeasurement": [
 		name: "Illuminance Measurement",
@@ -377,14 +356,6 @@ preferences {
 		],
 		action: "actionIndicator"
 	],
-	"infraredLevel": [
-		name: "Infrared Level",
-		capability: "capability.infraredLevel",
-		attributes: [
-			"infraredLevel"
-		],
-		action: "actionInfraredLevel"
-	],
 	"light": [
 		name: "Light",
 		capability: "capability.light",
@@ -393,22 +364,41 @@ preferences {
 		],
 		action: "actionOnOff"
 	],
-	"lockOnly": [
-		name: "Lock Only",
-		capability: "capability.lockOnly",
+	"lightEffects": [
+		name: "Light Effects",
+		capability: "capability.lightEffects",
 		attributes: [
-			"lock"
+			"effectName",
+            "lightEffects"
 		],
-		action: "actionLockOnly"
+		action: "actionLightEffects"
+	],
+	"locationMode": [
+		name: "Location Mode",
+		capability: "capability.locationMode",
+		attributes: [
+			"mode"
+		]
 	],
 	"lock": [
-		name: "Lock",
-		capability: "capability.lock",
+		name: "Lock Codes",
+		capability: "capability.lockCodes",
 		attributes: [
 			"lock"
 		],
 		action: "actionLock"
 	],
+	"lockCode": [
+		name: "Lock Codes",
+		capability: "capability.lock",
+		attributes: [
+			"codeChanged",
+            "codeLength",
+            "lockCodes",
+            "maxCodes"
+		],
+		action: "actionLockCodes"
+	],    
 	"mediaController": [
 		name: "Media Controller",
 		capability: "capability.mediaController",
@@ -418,47 +408,6 @@ preferences {
 		],
 		action: "actionMediaController"
 	],
-	"mediaInputSource": [
-		name: "Media Input Source",
-		capability: "capability.mediaInputSource",
-		attributes: [
-			"inputSource",
-			"supportedInputSources"
-		],
-		action: "actionMediaInputSource"
-	],
-	"mediaPlaybackRepeat": [
-		name: "Media Playback Repeat",
-		capability: "capability.mediaPlaybackRepeat",
-		attributes: [
-			"playbackRepeatMode"
-		],
-		action: "actionMediaPlaybackRepeat"
-	],
-	"mediaPlaybackShuffle": [
-		name: "Media Playback Shuffle",
-		capability: "capability.mediaPlaybackShuffle",
-		attributes: [
-			"playbackShuffle"
-		],
-		action: "actionPlaybackShuffle"
-	],
-	"mediaPlayback": [
-		name: "Media Playback",
-		capability: "capability.mediaPlayback",
-		attributes: [
-			"level",
-			"playbackStatus"
-		],
-		action: "actionMediaPlayback"
-	],
-	"mediaTrackControl": [
-		name: "Media Track Control",
-		capability: "capability.mediaTrackControl",
-		attributes: [
-		],
-		action: "actionMediaTrackControl"
-	],
 	"momentary": [
 		name: "Momentary",
 		capability: "capability.momentary",
@@ -466,7 +415,7 @@ preferences {
 		],
 		action: "actionMomentary"
 	],
-	"motionSensors": [
+	"motionSensor": [
 		name: "Motion Sensor",
 		capability: "capability.motionSensor",
 		attributes: [
@@ -493,13 +442,6 @@ preferences {
 		],
 		action: "actionNotification"
 	],
-	"odorSensor": [
-		name: "Odor Sensor",
-		capability: "capability.odorSensor",
-		attributes: [
-			"odorLevel"
-		]
-	],
 	"outlet": [
 		name: "Outlet",
 		capability: "capability.outlet",
@@ -507,34 +449,6 @@ preferences {
 			"switch"
 		],
 		action: "actionOnOff"
-	],
-	"ovenMode": [
-		name: "Oven Mode",
-		capability: "capability.ovenMode",
-		attributes: [
-			"ovenMode"
-		],
-		action: "actionOvenMode"
-	],
-	"ovenOperatingState": [
-		name: "Oven Operating State",
-		capability: "capability.ovenOperatingState",
-		attributes: [
-			"machineState",
-			"supportedMachineStates",
-			"ovenJobState",
-			"remainingTime",
-			"operationTime"
-		],
-		action: "actionOvenOperatingState"
-	],
-	"ovenSetpoint": [
-		name: "Oven Setpoint",
-		capability: "capability.ovenSetpoint",
-		attributes: [
-			"ovenSetpoint"
-		],
-		action: "actionOvenSetpoint"
 	],
 	"pHMeasurement": [
 		name: "pH Measurement",
@@ -550,7 +464,7 @@ preferences {
 		],
 		action: "actionPolling"
 	],
-	"powerMeters": [
+	"powerMeter": [
 		name: "Power Meter",
 		capability: "capability.powerMeter",
 		attributes: [
@@ -564,7 +478,7 @@ preferences {
 			"powerSource"
 		]
 	],
-	"presenceSensors": [
+	"presenceSensor": [
 		name: "Presence Sensor",
 		capability: "capability.presenceSensor",
 		attributes: [
@@ -572,13 +486,12 @@ preferences {
 		],
 		action: "actionPresence"
 	],
-	"rapidCooling": [
-		name: "Rapid Cooling",
-		capability: "capability.rapidCooling",
+	"pressureMeasurement": [
+		name: "PressureMeasurement",
+		capability: "capability.pressureMeasurement",
 		attributes: [
-			"rapidCooling"
-		],
-		action: "actionRapidCooling"
+			"pressure"
+		]
 	],
 	"refresh": [
 		name: "Refresh",
@@ -587,21 +500,21 @@ preferences {
 		],
 		action: "actionRefresh"
 	],
-	"refrigerationSetpoint": [
-		name: "Refrigeration Setpoint",
-		capability: "capability.refrigerationSetpoint",
+	"pushableButton": [
+		name: "Pushable Button",
+		capability: "capability.pushableButton",
 		attributes: [
-			"refrigerationSetpoint"
-		],
-		action: "actionRefrigerationSetpoint"
+            "numberOfButtons",
+            "pushed"
+		]
 	],
-	"humiditySensors": [
+	"relativeHumidityMeasurement": [
 		name: "Relative Humidity Measurement",
 		capability: "capability.relativeHumidityMeasurement",
 		attributes: [
-			"humidity"
+            "humidity"
 		]
-	],
+	],    
 	"relaySwitch": [
 		name: "Relay Switch",
 		capability: "capability.relaySwitch",
@@ -610,29 +523,37 @@ preferences {
 		],
 		action: "actionOnOff"
 	],
-	"robotCleanerCleaningMode": [
-		name: "Robot Cleaner Cleaning Mode",
-		capability: "capability.robotCleanerCleaningMode",
+	"releasableButton": [
+		name: "ReleasableButton",
+		capability: "capability.releasableButton",
 		attributes: [
-			"robotCleanerCleaningMode"
-		],
-		action: "actionRobotCleanerCleaningMode"
+			"released"
+		]
 	],
-	"robotCleanerMovement": [
-		name: "Robot Cleaner Movement",
-		capability: "capability.robotCleanerMovement",
+	"samsungTV": [
+		name: "Samsung TV",
+		capability: "capability.samsungTV",
 		attributes: [
-			"robotCleanerMovement"
+            "messageButton",
+            "mute",
+            "pictureMode",
+            "soundMode",
+            "switch",
+            "volume"
 		],
-		action: "actionRobotCleanerMovement"
+		action: "actionSamsungTV"
 	],
-	"robotCleanerTurboMode": [
-		name: "Robot Cleaner Turbo Mode",
-		capability: "capability.robotCleanerTurboMode",
+	"securityKeypad": [
+		name: "Security Keypad",
+		capability: "capability.securityKeypad",
 		attributes: [
-			"robotCleanerTurboMode"
+            "codeChanged",
+            "codeLength",
+            "lockCodes",
+            "maxCodes",
+            "securityKeypad"
 		],
-		action: "actionRobotCleanerTurboMode"
+		action: "actionSecurityKeypad"
 	],
 	"sensor": [
 		name: "Sensor",
@@ -713,7 +634,7 @@ preferences {
 		],
 		action: "actionSwitchLevel"
 	],
-	"switches": [
+	"switch": [
 		name: "Switch",
 		capability: "capability.switch",
 		attributes: [
@@ -728,7 +649,7 @@ preferences {
 			"tamper"
 		]
 	],
-	"temperatureSensors": [
+	"temperatureSensor": [
 		name: "Temperature Measurement",
 		capability: "capability.temperatureMeasurement",
 		attributes: [
@@ -739,8 +660,7 @@ preferences {
 		name: "Thermostat Cooling Setpoint",
 		capability: "capability.thermostatCoolingSetpoint",
 		attributes: [
-			"coolingSetpoint",
-			"coolingSetpointRange"
+			"coolingSetpoint"
 		],
 		action: "actionThermostatCoolingSetpoint"
 	],
@@ -748,8 +668,7 @@ preferences {
 		name: "Thermostat Fan Mode",
 		capability: "capability.thermostatFanMode",
 		attributes: [
-			"thermostatFanMode",
-			"supportedThermostatFanModes"
+			"thermostatFanMode"
 		],
 		action: "actionThermostatFanMode"
 	],
@@ -757,17 +676,15 @@ preferences {
 		name: "Thermostat Heating Setpoint",
 		capability: "capability.thermostatHeatingSetpoint",
 		attributes: [
-			"heatingSetpoint",
-			"heatingSetpointRange"
+			"heatingSetpoint"
 		],
 		action: "actionThermostatHeatingSetpoint"
-	],
+	],  
 	"thermostatMode": [
 		name: "Thermostat Mode",
 		capability: "capability.thermostatMode",
 		attributes: [
-			"thermostatMode",
-			"supportedThermostatModes"
+			"thermostatMode"
 		],
 		action: "actionThermostatMode"
 	],
@@ -778,33 +695,20 @@ preferences {
 			"thermostatOperatingState"
 		]
 	],
+    "thermostatSchedule": [
+		name: "Thermostat Schedule",
+		capability: "capability.thermostatSchedule",
+		attributes: [
+			"schedule"
+		],
+		action: "actionThermostatSchedule"
+	],
 	"thermostatSetpoint": [
 		name: "Thermostat Setpoint",
 		capability: "capability.thermostatSetpoint",
 		attributes: [
-			"thermostatSetpoint",
-			"thermostatSetpointRange"
+			"thermostatSetpoint"
 		]
-	],
-	"thermostat": [
-		name: "Thermostat",
-		capability: "capability.thermostat",
-		attributes: [
-			"coolingSetpoint",
-			"coolingSetpointRange",
-			"heatingSetpoint",
-			"heatingSetpointRange",
-			"schedule",
-			"temperature",
-			"thermostatFanMode",
-			"supportedThermostatFanModes",
-			"thermostatMode",
-			"supportedThermostatModes",
-			"thermostatOperatingState",
-			"thermostatSetpoint",
-			"thermostatSetpointRange"
-		],
-		action: "actionThermostat"
 	],
 	"threeAxis": [
 		name: "Three Axis",
@@ -836,14 +740,43 @@ preferences {
 			"touch"
 		]
 	],
-	"tVChannel": [
-		name: "TV Channel",
-		capability: "capability.tVChannel",
+	"tv": [
+		name: "TV",
+		capability: "capability.TV",
 		attributes: [
-			"tvChannel"
+            "channel",
+            "movieMode",
+            "picture",
+            "power",
+            "sound",
+            "volume"
 		],
-		action: "actionTvChannel"
+		action: "actionTV"
 	],
+	"temperatureMeasurement": [
+		name: "Temperature Measurement",
+		capability: "capability.temperatureMeasurement",
+		attributes: [
+			"temperature"
+		]
+	],
+	"thermostat": [
+		name: "Thermostat",
+		capability: "capability.thermostat",
+		attributes: [
+			"coolingSetpoint",
+            "heatingSetpoint",
+            "schedule",
+            "supportedThermostatFanModes",
+            "supportedThermostatModes",
+            "temperature",
+            "thermostatFanMode",
+            "thermostatMode",
+            "thermostatOperatingState",
+            "thermostatSetpoint"
+		],
+		action: "actionThermostat"
+	],    
 	"ultravioletIndex": [
 		name: "Ultraviolet Index",
 		capability: "capability.ultravioletIndex",
@@ -860,47 +793,25 @@ preferences {
 		],
 		action: "actionOpenClose"
 	],
-	"videoStream": [
-		name: "Video Stream",
-		capability: "capability.videoStream",
+    "videoCamera": [
+		name: "Video Camera",
+		capability: "capability.videoCamera",
 		attributes: [
-			"stream"
+			"camera",
+            "mute",
+            "settings",
+            "statusMessage"
 		],
-		action: "actionVideoStream"
+		action: "actionVideoCamera"
 	],
-	"voltageMeasurement": [
-		name: "Voltage Measurement",
-		capability: "capability.voltageMeasurement",
+    "videoCapture": [
+		name: "Video Capture",
+		capability: "capability.videoCapture",
 		attributes: [
-			"voltage"
-		]
-	],
-	"washerMode": [
-		name: "Washer Mode",
-		capability: "capability.washerMode",
-		attributes: [
-			"ovenMode"
+			"clip"
 		],
-		action: "actionWasherMode"
-	],
-	"washerOperatingState": [
-		name: "Washer Operating State",
-		capability: "capability.washerOperatingState",
-		attributes: [
-			"machineState",
-			"supportedMachineStates",
-			"washerJobState",
-			"remainingTime"
-		],
-		action: "actionWasherOperatingState"
-	],
-	"waterSensors": [
-		name: "Water Sensor",
-		capability: "capability.waterSensor",
-		attributes: [
-			"water"
-		]
-	],
+		action: "actionVideoCapture"
+	],    
 	"windowShades": [
 		name: "Window Shade",
 		capability: "capability.windowShade",
@@ -908,18 +819,42 @@ preferences {
 			"windowShade"
 		],
 		action: "actionWindowShade"
+	],
+	"waterSensor": [
+		name: "Water Sensor",
+		capability: "capability.waterSensor",
+		attributes: [
+			"water"
+		]
+	],
+	"windowShade": [
+		name: "Window Shade",
+		capability: "capability.windowShade",
+		attributes: [
+			"windowShade"
+		],
+		action: "actionWindowShade"
+	],
+	"zwMultichannel": [
+		name: "ZW Multichannel",
+		capability: "capability.zwMultichannel",
+		attributes: [
+			"epEvent",
+            "epInfo"
+		],
+		action: "actionZwMultichannel"
 	]
 ]
 
 def installed() {
-	log.debug "Installed with settings: ${settings}"
+	debug("[installed] Installed with settings: ${settings}")
 
 	runEvery15Minutes(initialize)
 	initialize()
 }
 
 def updated() {
-	log.debug "Updated with settings: ${settings}"
+	debug("[updated] Updated with settings: ${settings}")
 
 	// Unsubscribe from all events
 	unsubscribe()
@@ -928,20 +863,36 @@ def updated() {
 	initialize()
 }
 
-// Return list of displayNames
-def getDeviceNames(devices) {
-	def list = []
-	devices.each{device->
-		list.push(device.displayName)
-	}
-	list
-}
-
 def initialize() {
+    debug("Initializing app...")
+    
 	// subscribe to mode/routine changes
 	subscribe(location, "mode", inputHandler)
 	subscribe(location, "routineExecuted", inputHandler)
+    
+    def attributes = [
+        notify: ["Contacts", "System"]
+    ]
+    
+    settings.selectedDevices.each { device ->
+        def normalizeId = normalizeId(device)
 
+        settings[normalizeId].each { capability ->
+            def capabilityCamel = lowerCamel(capability)
+            def capabilitiesMap = CAPABILITY_MAP[capabilityCamel]
+            
+            capabilitiesMap["attributes"].each { attribute ->
+			    subscribe(device, attribute, inputHandler)
+		    }
+            
+            if (!attributes.containsKey(low)) {
+				attributes[capabilityCamel] = []
+			}
+            
+            attributes[capabilityCamel].push(normalizeId)
+        }
+    }
+    
 	// Subscribe to new events from devices
 	CAPABILITY_MAP.each { key, capability ->
 		capability["attributes"].each { attribute ->
@@ -949,30 +900,14 @@ def initialize() {
 		}
 	}
 
-	// Subscribe to events from the bridge
-	subscribe(bridge, "message", bridgeHandler)
+	// Subscribe to events from the mqttLink
+	subscribe(mqttLink, "message", mqttLinkHandler)
 
-	// Update the bridge
-	updateSubscription()
+    updateSubscription()
 }
 
-// Update the bridge's subscription
+// Update the mqttLink's subscription
 def updateSubscription() {
-	def attributes = [
-		notify: ["Contacts", "System"]
-	]
-
-	CAPABILITY_MAP.each { key, capability ->
-		capability["attributes"].each { attribute ->
-			if (!attributes.containsKey(attribute)) {
-				attributes[attribute] = []
-			}
-			settings[key].each {device ->
-				attributes[attribute].push(device.displayName)
-			}
-		}
-	}
-
 	def json = new groovy.json.JsonOutput().toJson([
 		path: "/subscribe",
 		body: [
@@ -980,22 +915,18 @@ def updateSubscription() {
 		]
 	])
 
-	log.debug "Updating subscription: ${json}"
+	debug("[updateSubscription] Updating subscription: ${json}")
 
-	bridge.deviceNotification(json)
+    mqttLink.deviceNotification(json)
 }
 
-// Receive an event from the bridge
-def bridgeHandler(evt) {
+// Receive an inbound event from the MQTT Link Driver
+def mqttLinkHandler(evt) {
 	def json = new JsonSlurper().parseText(evt.value)
-	log.debug "Received device event from bridge: ${json}"
-
+	debug("[mqttLinkHandler] Received inbound device event from MQTT Link Driver: ${json}")
+    
 	if (json.type == "notify") {
-		if (json.name == "Contacts") {
-			sendNotificationToContacts("${json.value}", recipients)
-		} else {
-			sendNotificationEvent("${json.value}")
-		}
+		sendNotificationEvent("${json.value}")
 		return
 	} else if (json.type == "modes") {
 		actionModes(json.value)
@@ -1005,61 +936,150 @@ def bridgeHandler(evt) {
 		return
 	}
 
-	// @NOTE this is stored AWFUL, we need a faster lookup table
-	// @NOTE this also has no fast fail, I need to look into how to do that
-	CAPABILITY_MAP.each { key, capability ->
-		if (capability["attributes"].contains(json.type)) {
-			settings[key].each {device ->
-				if (device.displayName == json.name) {
-
-					if (json.command == false) {
-						if (device.getSupportedCommands().any {it.name == "setStatus"}) {
-							log.debug "Setting state ${json.type} = ${json.value}"
-							device.setStatus(json.type, json.value)
-							state.ignoreEvent = json;
-						}
-					} else {
-						if (capability.containsKey("action")) {
-							def action = capability["action"]
-							// Yes, this is calling the method dynamically
-							"$action"(device, json.type, json.value)
-						}
-					}
-
-				}
-			}
-		}
-	}
+    def attribute = json.type
+    def capability = CAPABILITY_MAP[attribute]
+    def normalizedId = json.device.toString()
+    def deviceName = state.selectedLookup[normalizedId]
+    
+    def selectedDevice = settings.selectedDevices.find { 
+        device -> (device.displayName == deviceName)
+    }
+    
+    if (selectedDevice && settings[normalizedId] && capability["attributes"].contains(attribute)) {
+        if (json.command == false) {
+            if (selectedDevice.getSupportedCommands().any {it.name == "setStatus"}) {
+                debug("[mqttLinkHandler] Setting state: ${attribute} = ${json.value}")
+                device.setStatus(attribute, json.value)
+                state.ignoreEvent = json;
+            }
+        } else {
+            if (capability.containsKey("action")) {
+                def action = capability["action"]
+                json['action'] = action
+                debug("[mqttLinkHandler] MQTT incoming target action: ${json}")
+                // Yes, this is calling the method dynamically
+                "$action"(selectedDevice, attribute, json.value)
+            }
+        }
+    }
 }
 
 // Receive an event from a device
 def inputHandler(evt) {
+    
+    // Incoming MQTT event will tigger a hub event which in-turn triggers a second call
+    // to inputHandler. If the evt is a hub Event and not json, it is swallowed
+    // to prevent triggering an outbound MQTT event for the incoming MQTT event.    
 	if (state.ignoreEvent
 		&& state.ignoreEvent.name == evt.displayName
 		&& state.ignoreEvent.type == evt.name
 		&& state.ignoreEvent.value == evt.value
 	) {
-		log.debug "Ignoring event ${state.ignoreEvent}"
+		debug("[inputHandler] Ignoring event: ${state.ignoreEvent}")
 		state.ignoreEvent = false;
 	}
 	else {
 		def json = new JsonOutput().toJson([
-			path: "/push",
-			body: [
-				name: evt.displayName,
-				value: evt.value,
-				type: evt.name
-			]
+            path: "/push",
+            body: [
+                archivable: evt.archivable,
+                date: evt.date,
+                description: evt.description,
+                descriptionText: evt.descriptionText,
+                deviceId: evt.deviceId,
+                deviceLabel: evt.displayName,
+                displayed: evt.displayed,
+                eventId: evt.id,
+                hubId: evt.hubId,
+                installedAppId: evt.installedAppId,
+                isStateChange: evt.isStateChange,
+                locationId: evt.locationId,
+                name: evt.name,
+                normalizedId: normalizedId(evt),
+                source: evt.source,
+                translatable: evt.translatable,
+                type: evt.type,
+                value: evt.value,
+                unit: evt.unit,
+            ]
 		])
-
-		log.debug "Forwarding device event to bridge: ${json}"
-		bridge.deviceNotification(json)
+        
+		debug("[inputHandler] Forwarding device event to driver: ${json}")
+        mqttLinkHandler.deviceNotification(json)
 	}
 }
 
-/*
- * ACTIONS
- */
+// ========================================================
+// HELPERS
+// ========================================================
+
+def getDeviceObj(id) {
+    def found
+    settings.allDevices.each { device -> 
+        if (device.getId() == id) {
+            debug("[getDeviceObj] Found at $device for $id with id: ${device.id}")
+            found = device
+        }
+    }
+    return found
+}
+
+def getHubId() {
+    def hub = location.hubs[0]
+    return "${hub.name}-${hub.hardwareID}".toLowerCase()
+}
+
+def getTopicPrefix() {
+    return "${rootTopic()}/${getHubId()}/"
+}
+
+def lowerCamel(str) {
+    def c = str.charAt(0)
+    return "${c.toLowerCase()}${str.substring(1)}".toString();
+}
+
+def normalize(name) {
+    return name.replaceAll("[^a-zA-Z0-9]+","-").toLowerCase()
+}
+
+def normalizeId(name, id) {
+    def normalizedName = normalize(name)
+    return "${normalizedName}-${id}".toString()
+}
+
+def normalizeId(device) {
+    return normalizeId(device.displayName, device.id)
+}
+
+def normalizedId(com.hubitat.hub.domain.Event evt) {
+    return normalizeId(evt.displayName, evt.deviceId)
+}
+
+// ========================================================
+// LOGGING
+// ========================================================
+
+def debug(msg) {
+	if (debugLogging) {
+    	log.debug msg
+    }
+}
+
+def info(msg) {
+    log.info msg
+}
+
+def warn(msg) {
+    log.warn msg
+}
+
+def error(msg) {
+    log.error msg
+}
+
+// ========================================================
+// ACTIONS
+// ========================================================
 
 // +---------------------------------+
 // | WARNING, BEYOND HERE BE DRAGONS |
@@ -1068,7 +1088,7 @@ def inputHandler(evt) {
 // I tried to put them in closures but apparently SmartThings Groovy sandbox
 // restricts you from running closures from an object (it's not safe).
 // --
-// John E - Note there isn't the same sandbox for Hubitat.  So head
+// John E - Note there isn't the same sandbox for Hubitat.  So heed
 // the original warning.
 
 def actionAirConditionerMode(device, attribute, value) {
@@ -1097,29 +1117,42 @@ def actionAudioMute(device, attribute, value) {
 }
 
 def actionAudioNotification(device, attribute, value) {
-//value0: URI of the track to be played
-//value1: volume level
+//value0: URI/URL of track to play
+//value1: Volume level (0 to 100)  
+    def (texttrackuri, volumelevel) = value.split(',')
 	switch (attribute) {
-		case "playTrack":
-			def values = value.split(',')
-			device.playTrack(values[0], values[1])
+		case "playText":
+    		device.playText(texttrackuri, volumelevel)
 			break
-		case "playTrackAndResume":
-			def values = value.split(',')
-			device.playTrackAndResume(values[0], values[1])
+		case "playTextAndRestore":
+			device.playTextAndRestore(texttrackuri, volumelevel)
+			break
+		case "playTextAndResume":
+			device.playTextAndResume(texttrackuri, volumelevel)
+			break
+		case "playTrack":
+			device.playTrack(texttrackuri, volumelevel)
+			break
+        case "playTrackAndResume":
+			device.playTrackAndResume(texttrackuri, volumelevel)
 			break
 		case "playTrackAndRestore":
-			def values = value.split(',')
-			device.playTrackAndRestore(values[0], values[1])
+			device.playTrackAndRestore(texttrackuri, volumelevel)
 			break
 	}
 }
 
 def actionAudioVolume(device, attribute, value) {
 	switch (attribute) {
+        case "mute":
+			device.mute()
+			break            
 		case "setVolume":
 			device.setVolume(value)
 			break
+        case "unmute":
+			device.unmute()
+			break           
 		case "volumeUp":
 			device.volumeUp()
 			break
@@ -1145,6 +1178,28 @@ def actionColorControl(device, attribute, value) {
 	}
 }
 
+def actionChangeLevel(device, attribute, value) {
+	switch (attribute) {
+		case "startLevelChange":
+			device.startLevelChange(value)
+			break
+		case "stopLevelChange":
+			device.stopLevelChange()
+			break
+	}
+}
+
+def actionChime(device, attribute, value) {
+	switch (attribute) {
+		case "playSound":
+			device.playSound(value)
+			break
+		case "stop":
+			device.stop()
+			break
+	}
+}
+        
 def actionColorTemperature(device, attribute, value) {
 	device.setColorTemperature(value as int)
 }
@@ -1165,28 +1220,13 @@ def actionConsumable(device, attribute, value) {
 	device.setConsumableStatus(value)
 }
 
-def actionDishwasherMode(device, attribute, value) {
-	device.setDishwasherMode(value)
+def actionFanControl(device, attribute, value) {
+// value: speed - ENUM ["low","medium-low","medium","medium-high","high","on","off","auto"]
+    device.setSpeed(value)
 }
 
-def actionDishwasherOperatingState(device, attribute, value) {
-	device.setMachineState(value)
-}
-
-def actionDryerMode(device, attribute, value) {
-	device.setDryerMode(value)
-}
-
-def actionDryerOperatingState(device, attribute, value) {
-	device.setMachineState(value)
-}
-
-def actionExecute(device, attribute, value) {
-	device.execute(attribute, value)
-}
-
-def actionFanSpeed(device, attribute, value) {
-	device.setFanSpeed(value)
+def actionHealthCheck(device, attribute, value) {
+	device.ping()
 }
 
 def actionImageCapture(device, attribute, value) {
@@ -1207,12 +1247,18 @@ def actionIndicator(device, attribute, value) {
 	}
 }
 
-def actionInfraredLevel(device, attribute, value) {
-	device.setInfraredLevel(value)
-}
-
-def actionLockOnly(device, attribute, value) {
-	device.lock()
+def actionLightEffects(device, attribute, value) {
+	switch (value) {
+		case "setEffect":
+			device.setEffect(value)
+			break
+		case "setNextEffect":
+			device.setNextEffect()
+			break
+		case "setPreviousEffect":
+			device.setPreviousEffect()
+			break
+	}
 }
 
 def actionLock(device, attribute, value) {
@@ -1223,45 +1269,33 @@ def actionLock(device, attribute, value) {
 	}
 }
 
+def actionLockCodes(device, attribute, value) {
+// codeposition required (NUMBER) - Code position number
+// pincode required (STRING) - Numeric PIN code
+// name optional (STRING) - Name for this lock code
+	switch (value) {
+		case "deleteCode":
+			device.deleteCode(value)
+			break
+		case "getCodes":
+			device.getCodes()
+			break
+		case "setCode":
+            def (codeposition, pincode, name) = value.split(",")
+			device.setCode(codeposition, pincode, name)
+			break
+		case "setCodeLength":
+			device.setCodeLength()
+			break
+	}
+}
+
 def actionMediaController(device, attribute, value) {
 	device.startActivity(value)
 }
 
-def actionMediaInputSource(device, attribute, value) {
-	device.setInputSource(value)
-}
-
-def actionMediaPlaybackRepeat(device, attribute, value) {
-	device.setPlaybackRepeatMode(value)
-}
-
 def actionPlaybackShuffle(device, attribute, value) {
 	device.setPlaybackShuffle(value)
-}
-
-def actionMediaPlayback(device, attribute, value) {
-	switch(attribute) {
-		case "setPlaybackStatus":
-			device.setPlaybackStatus(value)
-			break
-		case "play":
-			device.play()
-			break
-		case "pause":
-			device.pause()
-			break
-		case "stop":
-			device.stop()
-			break
-	}
-}
-
-def actionMediaTrackControl(device, attribute, value) {
-	if (value == "nextTrack") {
-		device.nextTrack()
-	} else if (value == "previousTrack") {
-		device.previousTrack()
-	}
 }
 
 def actionMomentary(device, attribute, value) {
@@ -1306,11 +1340,6 @@ def actionMusicPlayer(device, attribute, value) {
 		case "unmute":
 			device.unmute()
 			break
-/*		case "status":
-			if (device.getSupportedCommands().any {it.name == "setStatus"}) {
-				device.setStatus(value)
-			}
-			break*/
 	}
 }
 
@@ -1318,47 +1347,79 @@ def actionNotification(device, attribute, value) {
 	device.deviceNotification(value)
 }
 
-def actionOvenMode(device, attribute, value) {
-	device.setOvenMode(value)
-}
-
-def actionOvenOperatingState(device, attribute, value) {
-	switch (attribute) {
-		case "setMachineState":
-			device.setMachineState(value)
-			break
-		case "stop":
-			device.stop()
-			break
-	}
-}
-
-def actionOvenSetpoint(device, attribute, value) {
-	device.setOvenSetpoint(value)
-}
-
 def actionPolling(device, attribute, value) {
 	device.poll()
 }
 
-def actionRapidCooling(device, attribute, value) {
-	device.setRapidCooling(value)
+def actionSamsungTV(device, attribute, value) {
+	switch (value) {
+		case "mute":
+			device.mute()
+			break
+		case "off":
+			device.off()
+			break
+		case "on":
+			device.on()
+			break
+		case "setPictureMode":
+			device.setPictureMode(value)
+			break
+		case "setSoundMode":
+			device.setSoundMode(value)
+			break
+		case "setVolume":
+			device.setVolume(value)
+			break
+		case "showMessage":
+			device.showMessage(value)
+			break
+		case "unmute":
+			device.unmute()
+			break
+		case "volumeDown":
+			device.volumeDown()
+			break
+		case "volumeUp":
+			device.volumeUp()
+			break
+	}
 }
 
-def actionRefrigerationSetpoint(device, attribute, value) {
-	device.setRefrigerationSetpoint(value)
-}
-
-def actionRobotCleanerCleaningMode(device, attribute, value) {
-	device.setRobotCleanerCleaningMode(value)
-}
-
-def actionRobotCleanerMovement(device, attribute, value) {
-	device.setRobotCleanerMovement(value)
-}
-
-def actionRobotCleanerTurboMode(device, attribute, value) {
-	device.setRobotCleanerTurboMode(value)
+def actionSecurityKeypad(device, attribute, value) {
+// codeposition required (NUMBER) - Code position number
+// pincode required (STRING) - Numeric PIN code
+// name optional (STRING) - Name for this lock code
+	switch (value) {
+		case "armAway":
+			device.armAway()
+			break
+		case "armHome":
+			device.armHome()
+			break
+		case "deleteCode":
+			device.deleteCode(value)
+			break
+		case "disarm":
+			device.disarm(value)
+			break
+		case "getCodes":
+            def (codeposition, pincode, name) = value.split(",")
+			device.getCodes(codeposition, pincode, name)
+			break
+		case "setCode":
+			device.setCode(value)
+			break
+		case "setCodeLength":
+			device.setCodeLength(value)
+			break
+		case "setEntryDelay":
+			device.setEntryDelay(value)
+			break
+		case "setExitDelay":
+			device.setExitDelay(value)
+			break
+	}
 }
 
 def actionSpeechSynthesis(device, attribute, value) {
@@ -1369,20 +1430,45 @@ def actionSwitchLevel(device, attribute, value) {
 	device.setLevel(value as int)
 }
 
-def actionThermostatCoolingSetpoint(device, attribute, value) {
-	device.setCoolingSetpoint(value)
+def actionTimedSession(device, attribute, value) {
+	switch (attribute) {
+		case "cancel":
+			device.cancel()
+			break
+		case "pause":
+			device.pause()
+			break
+		case "setTimeRemaining":
+			device.setTimeRemaining(value)
+			break
+		case "start":
+			device.start()
+			break
+		case "stop":
+			device.stop()
+			break
+	}
 }
 
-def actionThermostatFanMode(device, attribute, value) {
-	device.setThermostatFanMode(value)
+def actionTone(device, attribute, value) {
+	device.beep()
 }
 
-def actionThermostatHeatingSetpoint(device, attribute, value) {
-	device.setHeatingSetpoint(value)
-}
-
-def actionThermostatMode(device, attribute, value) {
-	device.setThermostatMode(value)
+def actionTV(device, attribute, value) {
+	switch (attribute) {
+		case "channelDown":
+			device.channelDown()
+			break
+		case "channelUp":
+			device.channelUp()
+			break
+		case "volumeDown":
+			device.volumeDown()
+			break
+		case "volumeUp":
+			device.volumeUp()
+			break
+	}
 }
 
 def actionThermostat(device, attribute, value) {
@@ -1417,68 +1503,92 @@ def actionThermostat(device, attribute, value) {
 		case "setHeatingSetpoint":
 			device.setHeatingSetpoint(value)
 			break
+		case "setSchedule":
 			device.setSchedule(value)
+			break
 		case "setThermostatFanMode":
 			device.setThermostatFanMode(value)
 			break
 		case "setThermostatMode":
 			device.setThermostatMode(value)
 			break
-	}
+    }
 }
 
-def actionTimedSession(device, attribute, value) {
+def actionThermostatCoolingSetpoint(device, attribute, value) {
+    device.setCoolingSetpoint(value)
+}
+
+def actionThermostatFanMode(device, attribute, value) {
 	switch (attribute) {
-		case "cancel":
-			device.cancel()
+		case "fanAuto":
+			device.fanAuto()
 			break
-		case "pause":
-			device.pause()
+		case "fanCirculate":
+			device.fanCirculate()
 			break
-		case "setTimeRemaining":
-			device.setTimeRemaining(value)
+		case "fanOn":
+			device.fanOn()
 			break
-		case "start":
-			device.start()
+		case "setThermostatFanMode":
+			device.setThermostatFanMode(value)
 			break
-		case "stop":
-			device.stop()
-			break
-	}
+    }
 }
 
-def actionTone(device, attribute, value) {
-	device.beep()
+def actionThermostatHeatingSetpoint(device, attribute, value) {
+    device.setHeatingSetpoint(value)
 }
 
-def actionTvChannel(device, attribute, value) {
+def actionThermostatMode(device, attribute, value) {
 	switch (attribute) {
-		case "setTvChannel":
-			device.setTvChannel(value)
+		case "auto":
+			device.auto()
 			break
-		case "channelUp":
-			device.channelUp()
+		case "cool":
+			device.cool()
 			break
-		case "channelDown":
-			device.channelDown()
+		case "emergencyHeat":
+			device.emergencyHeat()
 			break
-	}
+		case "heat":
+			device.heat()
+			break
+		case "off":
+			device.off()
+			break
+		case "setThermostatMode":
+			device.setThermostatMode(value)
+			break
+    }
 }
 
-def actionVideoStream(device, attribute, value) {
-	if (value == "startStream") {
-		device.startStream()
-	} else if (value == "stopStream") {
-		device.stopStream()
-	}
+def actionThermostatSchedule(device, attribute, value) {
+    device.setSchedule()
 }
 
-def actionWasherMode(device, attribute, value) {
-	device.setWasherMode(value)
+def actionVideoCamera(device, attribute, value) {
+	switch (attribute) {
+		case "flip":
+			device.flip()
+			break
+		case "mute":
+			device.mute()
+			break
+		case "off":
+			device.off()
+			break
+		case "on":
+			device.on()
+			break
+		case "unmute":
+			device.unmute()
+			break
+    }
 }
 
-def actionWasherOperatingState(device, attribute, value) {
-	device.setMachineState(value)
+def actionVideoCapture(device, attribute, value) {
+    device.capture(value)
 }
 
 def actionWindowShade(device, attribute, value) {
@@ -1491,6 +1601,18 @@ def actionWindowShade(device, attribute, value) {
 			break
 		case "presetPosition":
 			device.presetPosition()
+			break
+	}
+}
+
+def actionZwMultichannel(device, attribute, value) {
+	switch (attribute) {
+		case "enableEpEvents":
+			device.enableEpEvents(value)
+			break
+		case "epCmd":
+            def (num, str) = value.split(",")
+			device.epCmd(num, str)
 			break
 	}
 }
@@ -1525,7 +1647,7 @@ def actionModes(value) {
 		if (location.modes?.find{it.name == value}) {
 			location.setMode(value)
 		} else {
-			log.warn "MQTT_Bridge: unknown mode ${value}"
+			warn("[actionModes] unknown mode: ${value}")
 		}
 	}
 }
