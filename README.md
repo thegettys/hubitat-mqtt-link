@@ -146,7 +146,7 @@ Following is an inclusive list of device capabilities, attributes and commands r
 
 Limited access to devices within each of these categories made it impossible to test each combination list. Please report any missing or erroneous details so that they can be corrected within the code. 
 
-[Hubitat Capabilities List]([https://docs.hubitat.com/index.php?title=Driver_Capability_List](https://docs.hubitat.com/index.php?title=Driver_Capability_List)) | [SmartThings Capabilities List](https://docs.smartthings.com/en/latest/capabilities-reference.html)
+[Hubitat Capabilities List](https://docs.hubitat.com/index.php?title=Driver_Capability_List) | [SmartThings Capabilities List](https://docs.smartthings.com/en/latest/capabilities-reference.html)
 * Acceleration Sensor - accelerationSensor
 	* acceleration
 * Actuator - actuator
