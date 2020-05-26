@@ -30,7 +30,7 @@
 import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 
-public static String version() { return "v0.1.0" }
+public static String version() { return "v0.2.0" }
 public static String rootTopic() { return "hubitat" }
 
 //hubitat / {hub-name} / { device-name } / { device-capability } / STATE
@@ -218,6 +218,10 @@ def sendDeviceEvent(message) {
     
     // Send command value only
     publishMqtt("${topic}${message.name}", message.value)
+    
+    if (message.pingRefresh) {
+        return
+    }
     
     if (settings.sendPayload) {
         // Send detailed event object

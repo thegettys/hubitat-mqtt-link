@@ -31,7 +31,7 @@ import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 import groovy.transform.Field
 
-public static String version() { return "v0.1.0" }
+public static String version() { return "v0.2.0" }
 public static String rootTopic() { return "hubitat" }
 
 definition(
@@ -731,6 +731,8 @@ def installed() {
 	debug("[installed] Installed with settings: ${settings}")
 
 	runEvery15Minutes(initialize)
+	runEvery1Minute(pingState)
+    
 	initialize()
 }
 
@@ -890,6 +892,48 @@ def inputHandler(evt) {
 	}
 }
 
+def pingState() {
+    settings.selectedDevices.each { device ->
+        def deviceId = normalizeId(device)
+        def attributes = device.getSupportedAttributes()
+        def capabilities = device.getCapabilities()
+
+        capabilities.each { capability ->
+            
+            def found = false
+            settings[deviceId].find { cap ->
+                if (cap == capability.name) {
+                    found = true
+                    return true
+                }
+                return false 
+            }
+
+            if (found) {
+                capability.getAttributes().each { attribute ->
+            
+                    def attributeName = upperCamel(attribute.toString())
+                    def currentValue = device."current${attributeName}"
+            
+                    debug("[pingState] Sending state refresh: ${device}:${attribute}:${currentValue}")
+                    
+                    def json = new JsonOutput().toJson([
+                        path: "/push",
+                        body: [
+                            normalizedId: deviceId,
+                            name: attribute,
+                            value: currentValue.toString(),
+                            pingRefresh: true
+                        ]
+                    ])
+
+                    mqttLink.deviceNotification(json)
+                }
+            }
+        }
+    }
+}
+
 // ========================================================
 // HELPERS
 // ========================================================
@@ -912,6 +956,11 @@ def getHubId() {
 
 def getTopicPrefix() {
     return "${rootTopic()}/${getHubId()}/"
+}
+
+def upperCamel(str) {
+    def c = str.charAt(0)
+    return "${c.toUpperCase()}${str.substring(1)}".toString();
 }
 
 def lowerCamel(str) {
