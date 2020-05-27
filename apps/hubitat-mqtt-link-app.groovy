@@ -31,7 +31,7 @@ import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 import groovy.transform.Field
 
-public static String version() { return "v0.2.0" }
+public static String version() { return "v0.2.1" }
 public static String rootTopic() { return "hubitat" }
 
 definition(
@@ -921,7 +921,7 @@ def pingState() {
                         path: "/push",
                         body: [
                             normalizedId: deviceId,
-                            name: attribute,
+                            name: attribute.name,
                             value: currentValue.toString(),
                             pingRefresh: true
                         ]
