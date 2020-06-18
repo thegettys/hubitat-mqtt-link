@@ -75,7 +75,7 @@ preferences {
 }
 
 def capabilitiesPage() {
-    def deprecatedCapabilities = ["Actuator","Beacon","Bridge","Bulb","Button","Garage Door Control","Holdable Button",
+    def deprecatedCapabilities = ["Actuator","Beacon","Bridge","Bulb","Button","Garage Door Control",
                                   "Indicator","Light","Lock Only","Music Player","Outlet","Polling","Relay Switch",
                                   "Sensor","Shock Sensor","Thermostat Setpoint","Thermostat","Touch Sensor"]
     dynamicPage(name: "capabilitiesPage") {        
@@ -145,14 +145,14 @@ def capabilitiesPage() {
 		name: "Acceleration Sensor",
 		capability: "capability.accelerationSensor",
 		attributes: [
-			"acceleration"
+			"acceleration" // ["inactive", "active"]
 		]
 	],
 	"alarm": [
 		name: "Alarm",
 		capability: "capability.alarm",
 		attributes: [
-			"alarm"
+			"alarm" // ["strobe", "off", "both", "siren"]
 		],
 		action: "actionAlarm"
 	],
@@ -167,8 +167,8 @@ def capabilitiesPage() {
 		name: "Audio Volume",
 		capability: "capability.audioVolume",
 		attributes: [
-            "mute",
-			"volume"
+            "mute", // ["unmuted", "muted"]
+			"volume" // 0 - 100
 		],
 		action: "actionAudioVolume"
 	],
@@ -176,7 +176,7 @@ def capabilitiesPage() {
 		name: "Battery",
 		capability: "capability.battery",
 		attributes: [
-			"battery"
+			"battery" // 0 - 100
 		]
 	],
 	"carbonDioxideMeasurement": [
@@ -190,7 +190,7 @@ def capabilitiesPage() {
 		name: "Carbon Monoxide Detector",
 		capability: "capability.carbonMonoxideDetector",
 		attributes: [
-			"carbonMonoxide"
+			"carbonMonoxide" // 0 - 100
 		]
 	],
 	"changeLevel": [
@@ -204,9 +204,9 @@ def capabilitiesPage() {
 		name: "Chime",
 		capability: "capability.chime",
 		attributes: [
-			"soundEffects",
-			"soundName",
-			"status"
+			"soundEffects", // JSON_OBJ
+			"soundName", // String
+			"status" // ["playing", "stopped"]
 		],
 		action: "actionChime"
 	],
@@ -214,9 +214,11 @@ def capabilitiesPage() {
 		name: "Color Control",
 		capability: "capability.colorControl",
 		attributes: [
-			"color",
-			"hue",
-			"saturation"
+            "RGB", // String
+			"color", // String
+            "colorName", // String
+			"hue", // 0 - 100
+			"saturation" // 0 - 100
 		],
 		action: "actionColorControl"
 	],
@@ -224,14 +226,15 @@ def capabilitiesPage() {
 		name: "Color Mode",
 		capability: "capability.colorMode",
 		attributes: [
-			"colorMode"
+			"colorMode" // ["CT", "RGB"]
 		]
 	],
 	"colorTemperature": [
 		name: "Color Temperature",
 		capability: "capability.colorTemperature",
 		attributes: [
-			"colorTemperature"
+			"colorName", // String
+			"colorTemperature" // 0 - 100
 		],
 		action: "actionColorTemperature"
 	],
@@ -246,7 +249,7 @@ def capabilitiesPage() {
 		name: "Consumable",
 		capability: "capability.consumable",
 		attributes: [
-			"consumableStatus"
+			"consumableStatus" // ["missing", "order", "maintenance_required", "good", "replace"]
 		],
 		action: "actionConsumable"
 	],
@@ -254,14 +257,14 @@ def capabilitiesPage() {
 		name: "Contact Sensor",
 		capability: "capability.contactSensor",
 		attributes: [
-			"contact"
+			"contact" // ["closed", "open"]
 		]
 	],
 	"doorControl": [
 		name: "Door Control",
 		capability: "capability.doorControl",
 		attributes: [
-			"door"
+			"door" // ["unknown", "closed", "open", "closing", "opening"]
 		],
 		action: "actionOpenClose"
 	],
@@ -276,21 +279,21 @@ def capabilitiesPage() {
 		name: "Energy Meter",
 		capability: "capability.energyMeter",
 		attributes: [
-			"energy"
+			"energy" // 0 - 100
 		]
 	],
 	"estimatedTimeOfArrival": [
 		name: "Estimated Time Of Arrival",
 		capability: "capability.estimatedTimeOfArrival",
 		attributes: [
-			"eta"
+			"eta" // Date
 		]
 	],
 	"fanControl": [
 		name: "Fan Control",
 		capability: "capability.fanControl",
 		attributes: [
-			"speed"
+			"speed" // ["low","medium-low","medium","medium-high","high","on","off","auto"]
 		],
         action: "actionFanControl"
 	],
@@ -298,29 +301,44 @@ def capabilitiesPage() {
 		name: "Filter Status",
 		capability: "capability.filterStatus",
 		attributes: [
-			"filterStatus"
+			"filterStatus" // ["normal", "replace"]
 		]
 	],
+    "garageDoorControl": [
+		name: "Garage Door Control",
+		capability: "capability.garageDoorControl",
+		attributes: [
+			"door" // ["unknown", "open", "closing", "closed", "opening"]
+		],
+		action: "actionOpenClose"
+	], 	
 	"healthCheck": [
 		name: "Health Check",
 		capability: "capability.healthCheck",
 		attributes: [
-			"checkInterval"
+			"checkInterval" // 0 - 100
 		],
 		action: "actionHealthCheck"
 	],
+	"holdableButton": [
+		name: "Holdable Button",
+		capability: "capability.holdableButton",
+		attributes: [
+			"held" // 0 - 100
+		]
+	],	
 	"illuminanceMeasurement": [
 		name: "Illuminance Measurement",
 		capability: "capability.illuminanceMeasurement",
 		attributes: [
-			"illuminance"
+			"illuminance" // 0 - 100
 		]
 	],
 	"imageCapture": [
 		name: "Image Capture",
 		capability: "capability.imageCapture",
 		attributes: [
-			"image"
+			"image" // String
 			],
 		action: "actionImageCapture"
 	],
@@ -328,8 +346,8 @@ def capabilitiesPage() {
 		name: "Light Effects",
 		capability: "capability.lightEffects",
 		attributes: [
-			"effectName",
-            "lightEffects"
+			"effectName", // String
+            "lightEffects" // JSON_OBJ
 		],
 		action: "actionLightEffects"
 	],
@@ -342,29 +360,29 @@ def capabilitiesPage() {
 	],
 	"lock": [
 		name: "Lock Codes",
-		capability: "capability.lockCodes",
+		capability: "capability.lock",
 		attributes: [
-			"lock"
+			"lock" // ["locked", "unlocked with timeout", "unlocked", "unknown"]
 		],
 		action: "actionLock"
 	],
-	"lockCode": [
+	"lockCodes": [
 		name: "Lock Codes",
-		capability: "capability.lock",
+		capability: "capability.lockCodes",
 		attributes: [
-			"codeChanged",
+			"codeChanged", // ["added", "changed", "deleted", "failed"]
             "codeLength",
-            "lockCodes",
+            "lockCodes", // JSON_OBJ
             "maxCodes"
 		],
 		action: "actionLockCodes"
-	],    
+	],     
 	"mediaController": [
 		name: "Media Controller",
 		capability: "capability.mediaController",
 		attributes: [
-			"activities",
-			"currentActivity"
+			"activities", // JSON_OBJ
+			"currentActivity" // String
 		],
 		action: "actionMediaController"
 	],
@@ -379,9 +397,8 @@ def capabilitiesPage() {
 		name: "Motion Sensor",
 		capability: "capability.motionSensor",
 		attributes: [
-			"motion"
-		],
-		action: "actionActiveInactive"
+			"motion" // ["inactive", "active"]
+		]
 	],
 	"notification": [
 		name: "Notification",
@@ -394,38 +411,45 @@ def capabilitiesPage() {
 		name: "pH Measurement",
 		capability: "capability.pHMeasurement",
 		attributes: [
-			"pH"
+			"pH" // 0 - 100
 		]
 	],
 	"powerMeter": [
 		name: "Power Meter",
 		capability: "capability.powerMeter",
 		attributes: [
-			"power"
+			"power" // 0 - 100
 		]
 	],
 	"powerSource": [
 		name: "Power Source",
 		capability: "capability.powerSource",
 		attributes: [
-			"powerSource"
+			"powerSource" // ["battery", "dc", "mains", "unknown"]
 		]
 	],
 	"presenceSensor": [
 		name: "Presence Sensor",
 		capability: "capability.presenceSensor",
 		attributes: [
-			"presence"
-		],
-		action: "actionPresence"
+			"presence" // ["present", "not present"]
+		]
 	],
 	"pressureMeasurement": [
 		name: "PressureMeasurement",
 		capability: "capability.pressureMeasurement",
 		attributes: [
-			"pressure"
+			"pressure" // 0 - 100
 		]
 	],
+	"pushableButton": [
+		name: "Pushable Button",
+		capability: "capability.pushableButton",
+		attributes: [
+            "numberOfButtons", // 1 - #
+            "pushed" // 1 - #
+		]
+	],	
 	"refresh": [
 		name: "Refresh",
 		capability: "capability.refresh",
@@ -433,19 +457,11 @@ def capabilitiesPage() {
 		],
 		action: "actionRefresh"
 	],
-	"pushableButton": [
-		name: "Pushable Button",
-		capability: "capability.pushableButton",
-		attributes: [
-            "numberOfButtons",
-            "pushed"
-		]
-	],
 	"relativeHumidityMeasurement": [
 		name: "Relative Humidity Measurement",
 		capability: "capability.relativeHumidityMeasurement",
 		attributes: [
-            "humidity"
+            "humidity" // 0 - 100
 		]
 	],    
 	"releasableButton": [
@@ -459,12 +475,12 @@ def capabilitiesPage() {
 		name: "Samsung TV",
 		capability: "capability.samsungTV",
 		attributes: [
-            "messageButton",
-            "mute",
-            "pictureMode",
-            "soundMode",
-            "switch",
-            "volume"
+            "messageButton", // JSON_OBJ
+            "mute", // ["muted", "unknown", "unmuted"]
+            "pictureMode", // ["unknown", "standard", "movie", "dynamic"]
+            "soundMode", // ["speech", "movie", "unknown", "standard", "music"]
+            "switch", // ["on", "off"]
+            "volume" // 0 - 100
 		],
 		action: "actionSamsungTV"
 	],
@@ -472,11 +488,11 @@ def capabilitiesPage() {
 		name: "Security Keypad",
 		capability: "capability.securityKeypad",
 		attributes: [
-            "codeChanged",
+            "codeChanged", // ["added", "changed", "deleted", "failed"]
             "codeLength",
-            "lockCodes",
+            "lockCodes", // JSON_OBJ
             "maxCodes",
-            "securityKeypad"
+            "securityKeypad" // ["disarmed", "armed home", "armed away", "unknown"]
 		],
 		action: "actionSecurityKeypad"
 	],
@@ -484,43 +500,43 @@ def capabilitiesPage() {
 		name: "Signal Strength",
 		capability: "capability.signalStrength",
 		attributes: [
-			"lqi",
-			"rssi"
+			"lqi", // 0 - 100
+			"rssi" // 0 - 100
 		]
 	],
 	"sleepSensor": [
 		name: "Sleep Sensor",
 		capability: "capability.sleepSensor",
 		attributes: [
-			"sleeping"
+			"sleeping" // ["not sleeping", "sleeping"]
 		]
 	],
 	"smokeDetector": [
 		name: "Smoke Detector",
 		capability: "capability.smokeDetector",
 		attributes: [
-			"smoke"
+			"smoke" // ["clear", "tested", "detected"]
 		]
 	],
 	"soundPressureLevel": [
 		name: "Sound Pressure Level",
 		capability: "capability.soundPressureLevel",
 		attributes: [
-			"soundPressureLevel"
+			"soundPressureLevel" // 0 - 100
 		]
 	],
 	"soundSensor": [
 		name: "Sound Sensor",
 		capability: "capability.soundSensor",
 		attributes: [
-			"sound"
+			"sound" // ["detected", "not detected"]
 		]
 	],
 	"speechRecognition": [
 		name: "Speech Recognition",
 		capability: "capability.speechRecognition",
 		attributes: [
-			"phraseSpoken"
+			"phraseSpoken" // String
 		]
 	],
 	"speechSynthesis": [
@@ -534,45 +550,65 @@ def capabilitiesPage() {
 		name: "Step Sensor",
 		capability: "capability.stepSensor",
 		attributes: [
-			"goal",
-			"steps"
+			"goal", // 0 - #
+			"steps" // 0 - #
 		]
-	],
-	"switchLevel": [
-		name: "Switch Level",
-		capability: "capability.switchLevel",
-		attributes: [
-			"level"
-		],
-		action: "actionSwitchLevel"
 	],
 	"switch": [
 		name: "Switch",
 		capability: "capability.switch",
 		attributes: [
-			"switch"
+			"switch" // ["on", "off"]
 		],
 		action: "actionOnOff"
+	],	
+	"switchLevel": [
+		name: "Switch Level",
+		capability: "capability.switchLevel",
+		attributes: [
+			"level" // 0 - 100
+		],
+		action: "actionSwitchLevel"
 	],
+	"tv": [
+		name: "TV",
+		capability: "capability.TV",
+		attributes: [
+            "channel", // 0 - #
+            "movieMode", // String
+            "picture", // String
+            "power", // String
+            "sound", // String
+            "volume" // 0 - 100
+		],
+		action: "actionTV"
+	],	
 	"tamperAlert": [
 		name: "Tamper Alert",
 		capability: "capability.tamperAlert",
 		attributes: [
-			"tamper"
+			"tamper" // ["clear", "detected"]
 		]
 	],
 	"temperatureSensor": [
 		name: "Temperature Measurement",
 		capability: "capability.temperatureMeasurement",
 		attributes: [
-			"temperature"
+			"temperature" // 0 - 100
 		]
 	],
+	"temperatureMeasurement": [
+		name: "Temperature Measurement",
+		capability: "capability.temperatureMeasurement",
+		attributes: [
+			"temperature" // 0 - 100
+		]
+	],	
 	"thermostatCoolingSetpoint": [
 		name: "Thermostat Cooling Setpoint",
 		capability: "capability.thermostatCoolingSetpoint",
 		attributes: [
-			"coolingSetpoint"
+			"coolingSetpoint" // 0 - 100
 		],
 		action: "actionThermostatCoolingSetpoint"
 	],
@@ -580,7 +616,7 @@ def capabilitiesPage() {
 		name: "Thermostat Fan Mode",
 		capability: "capability.thermostatFanMode",
 		attributes: [
-			"thermostatFanMode"
+			"thermostatFanMode" // ["auto", "circulate", "on"]
 		],
 		action: "actionThermostatFanMode"
 	],
@@ -588,7 +624,7 @@ def capabilitiesPage() {
 		name: "Thermostat Heating Setpoint",
 		capability: "capability.thermostatHeatingSetpoint",
 		attributes: [
-			"heatingSetpoint"
+			"heatingSetpoint" // 0 - 100
 		],
 		action: "actionThermostatHeatingSetpoint"
 	],  
@@ -596,7 +632,7 @@ def capabilitiesPage() {
 		name: "Thermostat Mode",
 		capability: "capability.thermostatMode",
 		attributes: [
-			"thermostatMode"
+			"thermostatMode" // ["heat", "cool", "emergency heat", "auto", "off"]
 		],
 		action: "actionThermostatMode"
 	],
@@ -604,14 +640,14 @@ def capabilitiesPage() {
 		name: "Thermostat Operating State",
 		capability: "capability.thermostatOperatingState",
 		attributes: [
-			"thermostatOperatingState"
+			"thermostatOperatingState" // ["vent economizer", "pending cool", "cooling", "heating", "pending heat", "fan only", "idle"]
 		]
 	],
     "thermostatSchedule": [
 		name: "Thermostat Schedule",
 		capability: "capability.thermostatSchedule",
 		attributes: [
-			"schedule"
+			"schedule" // JSON_OBJ
 		],
 		action: "actionThermostatSchedule"
 	],
@@ -619,15 +655,15 @@ def capabilitiesPage() {
 		name: "Three Axis",
 		capability: "capability.threeAxis",
 		attributes: [
-			"threeAxis"
+			"threeAxis" // VECTOR3
 		]
 	],
 	"timedSession": [
 		name: "Timed Session",
 		capability: "capability.timedSession",
 		attributes: [
-			"sessionStatus",
-			"timeRemaining"
+			"sessionStatus", // ["stopped", "canceled", "running", "paused"]
+			"timeRemaining" // 0 - 100
 		],
 		action: "actionTimedSession"
 	],
@@ -638,39 +674,18 @@ def capabilitiesPage() {
 		],
 		action: "actionTone"
 	],
-	"tv": [
-		name: "TV",
-		capability: "capability.TV",
-		attributes: [
-            "channel",
-            "movieMode",
-            "picture",
-            "power",
-            "sound",
-            "volume"
-		],
-		action: "actionTV"
-	],
-	"temperatureMeasurement": [
-		name: "Temperature Measurement",
-		capability: "capability.temperatureMeasurement",
-		attributes: [
-			"temperature"
-		]
-	],
 	"ultravioletIndex": [
 		name: "Ultraviolet Index",
 		capability: "capability.ultravioletIndex",
 		attributes: [
-			"ultravioletIndex"
+			"ultravioletIndex" // 0 - 100
 		]
 	],
 	"valve": [
 		name: "Valve",
 		capability: "capability.valve",
 		attributes: [
-			"contact",
-			"valve"
+			"valve" // ["open", "closed"]
 		],
 		action: "actionOpenClose"
 	],
@@ -678,10 +693,10 @@ def capabilitiesPage() {
 		name: "Video Camera",
 		capability: "capability.videoCamera",
 		attributes: [
-			"camera",
-            "mute",
-            "settings",
-            "statusMessage"
+			"camera", // ["on", "off", "restarting", "unavailable"]
+            "mute", // ["unmuted", "muted"]
+            "settings", // JSON_OBJ
+            "statusMessage" // String
 		],
 		action: "actionVideoCamera"
 	],
@@ -689,10 +704,25 @@ def capabilitiesPage() {
 		name: "Video Capture",
 		capability: "capability.videoCapture",
 		attributes: [
-			"clip"
+			"clip" // JSON_OBJ
 		],
 		action: "actionVideoCapture"
-	],    
+	],
+    "voltageMeasurement": [
+		name: "Voltage Measurement",
+		capability: "capability.voltageMeasurement",
+		attributes: [
+			"voltage" // 0 - #
+		],
+		action: "actionVideoCapture"
+	],
+	"waterSensor": [
+		name: "Water Sensor",
+		capability: "capability.waterSensor",
+		attributes: [
+			"water" // ["wet", "dry"]
+		]
+	],	
 	"windowShades": [
 		name: "Window Shade",
 		capability: "capability.windowShade",
@@ -701,18 +731,12 @@ def capabilitiesPage() {
 		],
 		action: "actionWindowShade"
 	],
-	"waterSensor": [
-		name: "Water Sensor",
-		capability: "capability.waterSensor",
-		attributes: [
-			"water"
-		]
-	],
 	"windowShade": [
 		name: "Window Shade",
 		capability: "capability.windowShade",
 		attributes: [
-			"windowShade"
+			"position", // 0 - 100
+			"windowShade" // ["opening", "partially open", "closed", "open", "closing", "unknown"]
 		],
 		action: "actionWindowShade"
 	],
@@ -720,8 +744,8 @@ def capabilitiesPage() {
 		name: "ZW Multichannel",
 		capability: "capability.zwMultichannel",
 		attributes: [
-			"epEvent",
-            "epInfo"
+			"epEvent", // String
+            "epInfo" // String
 		],
 		action: "actionZwMultichannel"
 	]
@@ -1103,6 +1127,11 @@ def actionColorControl(device, attribute, value) {
 		case "setColor":
 			def values = value.split(',')
 			def colormap = ["hue": values[0] as int, "saturation": values[1] as int]
+
+			if (values[2]) {
+				colormap["level"] = values[2] as int
+			}
+
 			device.setColor(colormap)
 			break
 		case "setHue":
@@ -1138,14 +1167,6 @@ def actionChime(device, attribute, value) {
         
 def actionColorTemperature(device, attribute, value) {
 	device.setColorTemperature(value as int)
-}
-
-def actionPresence(device, attribute, value) {
-	if (value == "present") {
-		device.arrived();
-	} else if (value == "not present") {
-		device.departed();
-	}
 }
 
 def actionConfiguration(device, attribute, value) {
@@ -1213,7 +1234,17 @@ def actionLockCodes(device, attribute, value) {
 }
 
 def actionMediaController(device, attribute, value) {
-	device.startActivity(value)
+	switch (value) {
+		case "getAllActivities":
+			device.getAllActivities()
+			break
+		case "getCurrentActivity":
+			device.getCurrentActivity()
+			break
+		case "startActivity":	
+			device.startActivity(value)
+			break
+	}
 }
 
 def actionPlaybackShuffle(device, attribute, value) {
@@ -1281,11 +1312,11 @@ def actionSecurityKeypad(device, attribute, value) {
 			device.disarm(value)
 			break
 		case "getCodes":
-            def (codeposition, pincode, name) = value.split(",")
-			device.getCodes(codeposition, pincode, name)
+			device.getCodes()
 			break
 		case "setCode":
-			device.setCode(value)
+		    def (codeposition, pincode, name) = value.split(",")
+			device.setCode(codeposition, pincode, name)
 			break
 		case "setCodeLength":
 			device.setCodeLength(value)
@@ -1397,7 +1428,7 @@ def actionThermostatMode(device, attribute, value) {
 }
 
 def actionThermostatSchedule(device, attribute, value) {
-    device.setSchedule()
+    device.setSchedule(value)
 }
 
 def actionVideoCamera(device, attribute, value) {
@@ -1421,6 +1452,7 @@ def actionVideoCamera(device, attribute, value) {
 }
 
 def actionVideoCapture(device, attribute, value) {
+	// capture(DATE, DATE, DATE)
     device.capture(value)
 }
 
@@ -1432,8 +1464,8 @@ def actionWindowShade(device, attribute, value) {
 		case "open":
 			device.open()
 			break
-		case "presetPosition":
-			device.presetPosition()
+		case "setPosition":
+			device.setPosition(value)
 			break
 	}
 }
