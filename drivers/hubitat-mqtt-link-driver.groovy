@@ -30,7 +30,7 @@
 import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 
-public static String version() { return "v0.2.1" }
+public static String version() { return "v1.0.0" }
 public static String rootTopic() { return "hubitat" }
 
 //hubitat / {hub-name} / { device-name } / { device-capability } / STATE
@@ -306,7 +306,8 @@ def getBrokerUri() {
 
 def getHubId() {
     def hub = location.hubs[0]
-    return "${hub.name}-${hub.hardwareID}".toLowerCase()
+    def hubNameNormalized = normalize(hub.name)
+    return "${hubNameNormalized}-${hub.hardwareID}".toLowerCase()
 }
 
 def getTopicPrefix() {

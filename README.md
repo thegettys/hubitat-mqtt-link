@@ -417,3 +417,18 @@ Limited access to devices within each of these categories made it impossible to 
 * ZW Multichannel - zwMultichannel
   * epEvent
   * epInfo
+
+### Release Notes
+
+# Update in Release 1.0.0
+* BREAKING CHANGES
+* Replace spaces in hub name with dashes to prevent MQTT topic with spaces in the name. `hub name` becomes `hub-name`
+# Update in Release 0.3.0
+* Added support for all Hubitat Virtual Devices
+# Update in Release 0.2.1
+* Minor fix that added device attibute name to notification raised from the app to the driver
+# Update in Release 0.2.0
+* Added scheduled job that runs every minute that reads and publishes device state messages to MQTT 
+# Update in Releadse 0.1.0
+* Initial release with Hubitat Package Manager support
+

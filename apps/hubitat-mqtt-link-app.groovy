@@ -31,7 +31,7 @@ import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 import groovy.transform.Field
 
-public static String version() { return "v0.2.1" }
+public static String version() { return "v1.0.0" }
 public static String rootTopic() { return "hubitat" }
 
 definition(
@@ -114,7 +114,7 @@ def capabilitiesPage() {
 
                 def selectedCapabilities = []
                 def deviceCapabilities = device.getCapabilities()
-                
+    
                 deviceCapabilities.each { capability ->
                     if (!deprecatedCapabilities.contains(capability.getName())) {
                         selectedCapabilities.add(capability.getName())
@@ -783,11 +783,11 @@ def initialize() {
     
     settings.selectedDevices.each { device ->
         def normalizeId = normalizeId(device)
-
+        
         settings[normalizeId].each { capability ->
             def capabilityCamel = lowerCamel(capability)
             def capabilitiesMap = CAPABILITY_MAP[capabilityCamel]
-            
+
             capabilitiesMap["attributes"].each { attribute ->
 			    subscribe(device, attribute, inputHandler)
 		    }
@@ -975,7 +975,8 @@ def getDeviceObj(id) {
 
 def getHubId() {
     def hub = location.hubs[0]
-    return "${hub.name}-${hub.hardwareID}".toLowerCase()
+    def hubNameNormalized = normalize(hub.name)
+    return "${hubNameNormalized}-${hub.hardwareID}".toLowerCase()
 }
 
 def getTopicPrefix() {
