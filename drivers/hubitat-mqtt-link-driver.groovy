@@ -30,7 +30,7 @@
 import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 
-public static String version() { return "v1.0.0" }
+public static String version() { return "v2.0.0" }
 public static String rootTopic() { return "hubitat" }
 
 //hubitat / {hub-name} / { device-name } / { device-capability } / STATE
@@ -123,7 +123,7 @@ void initialize() {
         pauseExecution(1000)
         
     } catch(Exception e) {
-        error("[initialize] ${e}")
+        error("[d:initialize] ${e}")
     }
 }
 
@@ -140,7 +140,7 @@ def subscribe(topic) {
         connect()
     }
 
-    debug("[subscribe] full topic: ${getTopicPrefix()}${topic}")
+    debug("[d:subscribe] full topic: ${getTopicPrefix()}${topic}")
     interfaces.mqtt.subscribe("${getTopicPrefix()}${topic}")
 }
 
@@ -149,7 +149,7 @@ def unsubscribe(topic) {
         connect()
     }
     
-    debug("[unsubscribe] full topic: ${getTopicPrefix()}${topic}")
+    debug("[d:unsubscribe] full topic: ${getTopicPrefix()}${topic}")
     interfaces.mqtt.unsubscribe("${getTopicPrefix()}${topic}")
 }
 
@@ -174,7 +174,7 @@ def disconnect() {
 
 // Device event notification from MQTT Link app via mqttLink.deviceNotification() 
 def deviceNotification(message) {
-    debug("[deviceNotification] Received message from MQTT Link app: '${message}'")
+    debug("[d:deviceNotification] Received message from MQTT Link app: '${message}'")
     
     
     def slurper = new JsonSlurper()
@@ -186,8 +186,19 @@ def deviceNotification(message) {
 	}
     
     // Device event 
-	if (parsed.path == '/push') {      
+    if (parsed.path == '/push') {
         sendDeviceEvent(parsed.body)
+    }        
+    
+    // Device state refresh
+    if (parsed.path == '/ping') {
+        if (mqttConnected) {
+            connected()
+        }
+        
+        parsed.body.each { device ->
+            sendDeviceEvent(device)
+        }
 	}
 }
 
@@ -201,9 +212,9 @@ def deviceSubscribe(message) {
     message.body.devices.each { key, capability ->
 		capability.each { attribute ->
             def normalizedAttrib = normalize(attribute)
-            def topic = "${normalizedAttrib}/${key}".toString()
+            def topic = "${normalizedAttrib}/cmd/${key}".toString()
             
-            debug("[deviceSubscribe] topic: ${topic} attribute: ${attribute}")
+            debug("[d:deviceSubscribe] topic: ${topic} attribute: ${attribute}")
             subscribe(topic)
 		}
 	}
@@ -211,10 +222,6 @@ def deviceSubscribe(message) {
 
 def sendDeviceEvent(message) {
     topic = "${message.normalizedId}/"
-
-    if (mqttConnected) {
-        connected()
-    }
     
     // Send command value only
     publishMqtt("${topic}${message.name}", message.value)
@@ -236,9 +243,12 @@ def sendDeviceEvent(message) {
 // Parse incoming message from the MQTT broker
 def parse(String event) {
     def message = interfaces.mqtt.parseMessage(event)  
-    def (name, hub, device, type) = message.topic.tokenize( '/' )
+    def (name, hub, device, cmd, type) = message.topic.tokenize( '/' )
     
-    debug("[parse] Received MQTT message: ${message}")
+    // ignore all msgs that aren't commands
+    if (cmd != 'cmd') return
+    
+    debug("[d:parse] Received MQTT message: ${message}")
     
     def json = new groovy.json.JsonOutput().toJson([
         device: device,
@@ -250,11 +260,12 @@ def parse(String event) {
 }
 
 def mqttClientStatus(status) {
-    debug("[mqttClientStatus] status: ${status}")
+    debug("[d:mqttClientStatus] status: ${status}")
 }
 
 def publishMqtt(topic, payload, qos = 0, retained = false) {
     if (notMqttConnected()) {
+        debug("[d:publishMqtt] not connected")
         initialize()
     }
     
@@ -262,10 +273,10 @@ def publishMqtt(topic, payload, qos = 0, retained = false) {
 
     try {
         interfaces.mqtt.publish("${pubTopic}", payload, qos, retained)
-        debug("[publishMqtt] topic: ${pubTopic} payload: ${payload}")
+        debug("[d:publishMqtt] topic: ${pubTopic} payload: ${payload}")
         
     } catch (Exception e) {
-        error("[publishMqtt] Unable to publish message: ${e}")
+        error("[d:publishMqtt] Unable to publish message: ${e}")
     }
 }
 
@@ -274,13 +285,13 @@ def publishMqtt(topic, payload, qos = 0, retained = false) {
 // ========================================================
 
 def connected() {
-    info("[connected] Connected to broker")
+    debug("[d:connected] Connected to broker")
     sendEvent (name: "connectionState", value: "connected")
     announceLwtStatus("online")
 }
 
 def disconnected() {
-    info("[disconnected] Disconnected from broker")
+    debug("[d:disconnected] Disconnected from broker")
     sendEvent (name: "connectionState", value: "disconnected")
     announceLwtStatus("offline")
 }

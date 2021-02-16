@@ -31,7 +31,7 @@ import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 import groovy.transform.Field
 
-public static String version() { return "v1.0.0" }
+public static String version() { return "v2.0.0" }
 public static String rootTopic() { return "hubitat" }
 
 definition(
@@ -77,7 +77,8 @@ preferences {
 def capabilitiesPage() {
     def deprecatedCapabilities = ["Actuator","Beacon","Bridge","Bulb","Button","Garage Door Control",
                                   "Indicator","Light","Lock Only","Music Player","Outlet","Polling","Relay Switch",
-                                  "Sensor","Shock Sensor","Thermostat Setpoint","Thermostat","Touch Sensor"]
+                                  "Sensor","Shock Sensor","Thermostat Setpoint","Thermostat","Touch Sensor",
+                                  "Configuration","Refresh"]
     dynamicPage(name: "capabilitiesPage") {        
         section ("<h2>Specify Exposed Capabilities per Device</h2>") {
             paragraph """<style>.pill {border-radius:4px;background-color:#337ab7;color:#fff;padding:10px 15px;
@@ -752,7 +753,7 @@ def capabilitiesPage() {
 ]
 
 def installed() {
-	debug("[installed] Installed with settings: ${settings}")
+	debug("[a:installed] Installed with settings: ${settings}")
 
 	runEvery15Minutes(initialize)
 	runEvery1Minute(pingState)
@@ -761,7 +762,7 @@ def installed() {
 }
 
 def updated() {
-	debug("[updated] Updated with settings: ${settings}")
+	debug("[a:updated] Updated with settings: ${settings}")
 
 	// Unsubscribe from all events
 	unsubscribe()
@@ -792,7 +793,7 @@ def initialize() {
 			    subscribe(device, attribute, inputHandler)
 		    }
             
-            if (!attributes.containsKey(low)) {
+            if (!attributes.containsKey(capabilityCamel)) {
 				attributes[capabilityCamel] = []
 			}
             
@@ -822,15 +823,15 @@ def updateSubscription(attributes) {
 		]
 	])
 
-	debug("[updateSubscription] Updating subscription: ${json}")
+	debug("[a:updateSubscription] Updating subscription: ${json}")
 
     mqttLink.deviceNotification(json)
 }
 
 // Receive an inbound event from the MQTT Link Driver
-def mqttLinkHandler(evt) {
+def mqttLinkHandler(evt) {    
 	def json = new JsonSlurper().parseText(evt.value)
-	debug("[mqttLinkHandler] Received inbound device event from MQTT Link Driver: ${json}")
+	debug("[a:mqttLinkHandler] Received inbound device event from MQTT Link Driver: ${json}")
     
 	if (json.type == "notify") {
 		sendNotificationEvent("${json.value}")
@@ -842,7 +843,7 @@ def mqttLinkHandler(evt) {
 		actionRoutines(json.value)
 		return
 	}
-
+    
     def attribute = json.type
     def capability = CAPABILITY_MAP[attribute]
     def normalizedId = json.device.toString()
@@ -853,20 +854,12 @@ def mqttLinkHandler(evt) {
     }
     
     if (selectedDevice && settings[normalizedId] && capability["attributes"].contains(attribute)) {
-        if (json.command == false) {
-            if (selectedDevice.getSupportedCommands().any {it.name == "setStatus"}) {
-                debug("[mqttLinkHandler] Setting state: ${attribute} = ${json.value}")
-                device.setStatus(attribute, json.value)
-                state.ignoreEvent = json;
-            }
-        } else {
-            if (capability.containsKey("action")) {
-                def action = capability["action"]
-                json['action'] = action
-                debug("[mqttLinkHandler] MQTT incoming target action: ${json}")
-                // Yes, this is calling the method dynamically
-                "$action"(selectedDevice, attribute, json.value)
-            }
+        if (capability.containsKey("action")) {
+            def action = capability["action"]
+            json['action'] = action
+            debug("[a:mqttLinkHandler] MQTT incoming target action: ${json}")
+            // Yes, this is calling the method dynamically
+            "$action"(selectedDevice, attribute, json.value)
         }
     }
 }
@@ -882,7 +875,7 @@ def inputHandler(evt) {
 		&& state.ignoreEvent.type == evt.name
 		&& state.ignoreEvent.value == evt.value
 	) {
-		debug("[inputHandler] Ignoring event: ${state.ignoreEvent}")
+		debug("[a:inputHandler] Ignoring event: ${state.ignoreEvent}")
 		state.ignoreEvent = false;
 	}
 	else {
@@ -911,12 +904,13 @@ def inputHandler(evt) {
             ]
 		])
         
-		debug("[inputHandler] Forwarding device event to driver: ${json}")
+		debug("[a:inputHandler] Forwarding device event to driver: ${json}")
         mqttLink.deviceNotification(json)
 	}
 }
 
 def pingState() {
+    def pingList = []
     settings.selectedDevices.each { device ->
         def deviceId = normalizeId(device)
         def attributes = device.getSupportedAttributes()
@@ -939,23 +933,28 @@ def pingState() {
                     def attributeName = upperCamel(attribute.toString())
                     def currentValue = device."current${attributeName}"
             
-                    debug("[pingState] Sending state refresh: ${device}:${attribute}:${currentValue}")
+                    debug("[a:pingState] Sending state refresh: ${device}:${attribute}:${currentValue}")
                     
-                    def json = new JsonOutput().toJson([
-                        path: "/push",
-                        body: [
+                    pingList.add([
                             normalizedId: deviceId,
                             name: attribute.name,
                             value: currentValue.toString(),
                             pingRefresh: true
-                        ]
-                    ])
-
-                    mqttLink.deviceNotification(json)
+                        ])
                 }
             }
         }
     }
+    
+    if (pingList.size > 0) {
+        def json = new JsonOutput().toJson([
+                        path: "/ping",
+                        body: pingList
+                    ])
+        
+        mqttLink.deviceNotification(json)
+    }
+    
 }
 
 // ========================================================
@@ -966,7 +965,7 @@ def getDeviceObj(id) {
     def found
     settings.allDevices.each { device -> 
         if (device.getId() == id) {
-            debug("[getDeviceObj] Found at $device for $id with id: ${device.id}")
+            debug("[a:getDeviceObj] Found at $device for $id with id: ${device.id}")
             found = device
         }
     }
