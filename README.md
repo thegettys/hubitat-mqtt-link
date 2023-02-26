@@ -328,7 +328,7 @@ Limited access to devices within each of these categories made it impossible to 
   * goal
   * steps
 * Switch Level - switchLevel
-  * level
+  * switchLevel
 * Switch - switch
   * switch
     * on
@@ -420,6 +420,8 @@ Limited access to devices within each of these categories made it impossible to 
 
 ### Release Notes
 
+# Update in Release 2.1.0
+* fix issues with window shades
 # Update in Release 1.0.0
 * BREAKING CHANGES
 * Replace spaces in hub name with dashes to prevent MQTT topic with spaces in the name. `hub name` becomes `hub-name`

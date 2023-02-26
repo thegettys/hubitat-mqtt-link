@@ -4,6 +4,7 @@
  * MIT License
  *
  * Copyright (c) 2020 license@mydevbox.com
+ * Copyright (c) 2022 thegettys
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -30,7 +31,7 @@
 import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 
-public static String version() { return "v2.0.0" }
+public static String version() { return "v2.1.0" }
 public static String rootTopic() { return "hubitat" }
 
 //hubitat / {hub-name} / { device-name } / { device-capability } / STATE

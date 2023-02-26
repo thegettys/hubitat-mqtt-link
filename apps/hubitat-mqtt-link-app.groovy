@@ -31,7 +31,7 @@ import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 import groovy.transform.Field
 
-public static String version() { return "v2.0.0" }
+public static String version() { return "v2.1.0" }
 public static String rootTopic() { return "hubitat" }
 
 definition(
@@ -66,7 +66,7 @@ preferences {
                 multiple: false,
                 submitOnChange: false
             )
-    	}
+	}
         section("Debug Settings") {
             input("debugLogging", "bool", title: "Enable debug logging", required: false, default:false) 
         }
@@ -312,7 +312,7 @@ def capabilitiesPage() {
 			"door" // ["unknown", "open", "closing", "closed", "opening"]
 		],
 		action: "actionOpenClose"
-	], 	
+	],
 	"healthCheck": [
 		name: "Health Check",
 		capability: "capability.healthCheck",
@@ -567,7 +567,7 @@ def capabilitiesPage() {
 		name: "Switch Level",
 		capability: "capability.switchLevel",
 		attributes: [
-			"level" // 0 - 100
+			"switchLevel" // 0 - 100
 		],
 		action: "actionSwitchLevel"
 	],
@@ -1021,7 +1021,7 @@ def normalizedId(com.hubitat.hub.domain.Event evt) {
 
 def debug(msg) {
 	if (debugLogging) {
-    	log.debug msg
+	log.debug msg
     }
 }
 
@@ -1082,7 +1082,7 @@ def actionAudioNotification(device, attribute, value) {
     def (texttrackuri, volumelevel) = value.split(',')
 	switch (attribute) {
 		case "playText":
-    		device.playText(texttrackuri, volumelevel)
+		device.playText(texttrackuri, volumelevel)
 			break
 		case "playTextAndRestore":
 			device.playTextAndRestore(texttrackuri, volumelevel)
@@ -1457,16 +1457,17 @@ def actionVideoCapture(device, attribute, value) {
 }
 
 def actionWindowShade(device, attribute, value) {
-	switch (attribute) {
-		case "close":
-			device.close(value)
-			break
-		case "open":
-			device.open()
-			break
-		case "setPosition":
-			device.setPosition(value)
-			break
+	debug("[actionWindowShade] ${device} ${attribute} ${value}")	
+        
+	if (value == "open") {
+		device.open()
+	} else if (value == "close") {
+		device.close()
+	} else if (value == "stop") {
+		device.stopPositionChange()
+	} else {
+		int level = Integer.parseInt(value)
+		device.setLevel(level)
 	}
 }
 
