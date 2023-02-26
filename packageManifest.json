@@ -1,28 +1,27 @@
 {
   "packageName": "MQTT Link",
-  "author": "Michael Gettys",
-  "version": "2.0.0",
-  "minimumHEVersion": "2.1.2",
+  "author": "thegettys",
+  "version": "2.1.0",
+  "minimumHEVersion": "0.0",
   "dateReleased": "2023-02-26",
-  "documentationLink": "https://github.com/thegettys/hubitat-mqtt-link/blob/master/README.md",
-	"communityLink": "https://github.com/thegettys/hubitat-mqtt-link/blob/master/README.md",
   "apps": [
     {
-      "id": "adb361be-1864-4014-b9af-fa4bbe33d422",
+      "id": "d251f3e4-6523-4d4b-9770-dd34bc61a48b",
       "name": "MQTT Link",
-      "namespace": "mydevbox",
+      "namespace": "thegettys",
       "location": "https://raw.githubusercontent.com/thegettys/hubitat-mqtt-link/master/apps/hubitat-mqtt-link-app.groovy",
-      "required": true,
-      "oauth": false
+      "required": false,
+      "oauth": false,
+      "primary": false
     }
   ],
   "drivers": [
     {
-      "id": "b55d5906-d139-4c68-b2a2-c06da7996079",
+      "id": "726447e1-352e-4f8f-a77b-3405662a139e",
       "name": "MQTT Link Driver",
-      "namespace": "mydevbox",
+      "namespace": "thegettys",
       "location": "https://raw.githubusercontent.com/thegettys/hubitat-mqtt-link/master/drivers/hubitat-mqtt-link-driver.groovy",
-      "required": true
+      "required": false
     }
   ]
 }

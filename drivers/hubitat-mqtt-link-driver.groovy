@@ -39,8 +39,8 @@ public static String rootTopic() { return "hubitat" }
 metadata {
         definition(
         	name: "MQTT Link Driver",
-        	namespace: "mydevbox",
-        	author: "Chris Lawson, et al",
+        	namespace: "thegettys",
+        	author: "Michael Gettys, et al",
         	description: "A link between MQTT broker and MQTT Link app",
         	iconUrl: "https://s3.amazonaws.com/smartapp-icons/Connections/Cat-Connections.png",
         	iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Connections/Cat-Connections@2x.png",
