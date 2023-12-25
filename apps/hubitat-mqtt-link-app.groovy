@@ -265,7 +265,7 @@ def capabilitiesPage() {
 		name: "Door Control",
 		capability: "capability.doorControl",
 		attributes: [
-			"door" // ["unknown", "closed", "open", "closing", "opening"]
+			"doorControl" // ["unknown", "closed", "open", "closing", "opening"]
 		],
 		action: "actionOpenClose"
 	],
@@ -834,16 +834,20 @@ def mqttLinkHandler(evt) {
 	debug("[a:mqttLinkHandler] Received inbound device event from MQTT Link Driver: ${json}")
     
 	if (json.type == "notify") {
+	    debug("[a:mqttLinkHandler] notify: ${json.value}")
 		sendNotificationEvent("${json.value}")
 		return
 	} else if (json.type == "modes") {
+	    debug("[a:mqttLinkHandler] modes: ${json.value}")
 		actionModes(json.value)
 		return
 	} else if (json.type == "routines") {
+	    debug("[a:mqttLinkHandler] routines: ${json.value}")
 		actionRoutines(json.value)
 		return
 	}
     
+	debug("[a:mqttLinkHandler] fall through: ${json.value}")
     def attribute = json.type
     def capability = CAPABILITY_MAP[attribute]
     def normalizedId = json.device.toString()
@@ -853,6 +857,8 @@ def mqttLinkHandler(evt) {
         device -> (device.displayName == deviceName)
     }
     
+    debug("[a:mqttLinkHandler] capability[\"attributes\"]: ${capability["attributes"]}")
+    debug("[a:mqttLinkHandler] attribute: ${attribute}")
     if (selectedDevice && settings[normalizedId] && capability["attributes"].contains(attribute)) {
         if (capability.containsKey("action")) {
             def action = capability["action"]
@@ -867,6 +873,7 @@ def mqttLinkHandler(evt) {
 // Receive an event from a device
 def inputHandler(evt) {
     
+    debug("[a:inputHandler] Incoming Event: ${evt}   state: ${state}")
     // Incoming MQTT event will tigger a hub event which in-turn triggers a second call
     // to inputHandler. If the evt is a hub Event and not json, it is swallowed
     // to prevent triggering an outbound MQTT event for the incoming MQTT event.    
@@ -1489,6 +1496,7 @@ def actionZwMultichannel(device, attribute, value) {
  */
 
 def actionOpenClose(device, attribute, value) {
+	debug("[actionOpenClose] ${device} ${attribute} ${value}")
 	if (value == "open") {
 		device.open()
 	} else if (value == "close") {
