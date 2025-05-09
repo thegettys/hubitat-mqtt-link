@@ -309,7 +309,8 @@ def capabilitiesPage() {
 		name: "Garage Door Control",
 		capability: "capability.garageDoorControl",
 		attributes: [
-			"door" // ["unknown", "open", "closing", "closed", "opening"]
+			"door", // ["unknown", "open", "closing", "closed", "opening"]
+			"garageDoorControl"
 		],
 		action: "actionOpenClose"
 	],
