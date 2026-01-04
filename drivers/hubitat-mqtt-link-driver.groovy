@@ -306,7 +306,7 @@ def disconnected() {
 }
 
 def announceLwtStatus(String status) {
-    publishMqtt("LWT", status)
+    publishMqtt("LWT", status, 0, true)
     publishMqtt("FIRMWARE", "${location.hub.firmwareVersionString}")
     publishMqtt("IP", "${location.hub.localIP}")
     publishMqtt("UPTIME", "${location.hub.uptime}")
