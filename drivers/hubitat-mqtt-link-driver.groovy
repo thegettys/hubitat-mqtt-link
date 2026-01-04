@@ -354,7 +354,7 @@ def debug(msg) {
 
 def verbose(msg) {
 	if (verboseLogging) {
-        log.debug msg
+        log.trace msg
     }
 }
 
