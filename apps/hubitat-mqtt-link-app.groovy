@@ -764,6 +764,11 @@ def hubStartupHandler() {
 def installed() {
 	debug("[a:installed] Installed with settings: ${settings}")
 
+    // http://www.cronmaker.com/ for quartz cron format
+    unschedule(initialize)
+	runEvery15Minutes(initialize) // schedule("0 0/15 * 1/1 * ? *", initialize)
+    unschedule(pingState)
+	runEvery1Minute(pingState) // schedule("0 0/1 * 1/1 * ? *", pingState)
 	initialize()
 }
 
@@ -779,14 +784,6 @@ def updated() {
 
 def initialize() {
     debug("Initializing app...")
-    unschedule(initialize)
-	
-    // http://www.cronmaker.com/ for quartz cron format
-	schedule("0 0/15 * 1/1 * ? *", initialize) //runEvery15Minutes(initialize)
-    //unschedule(discovery)
-    //schedule("* * * * *", discovery) //runEvery1Minute(discovery)
-    unschedule(pingState)
-	schedule("0 0/1 * 1/1 * ? *", pingState) //runEvery1Minute(pingState)
 	// subscribe to mode/routine changes
 	subscribe(location, "mode", inputHandler)
 	subscribe(location, "routineExecuted", inputHandler)
