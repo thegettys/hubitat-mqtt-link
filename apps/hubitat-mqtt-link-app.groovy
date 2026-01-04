@@ -780,11 +780,11 @@ def updated() {
 def initialize() {
     debug("Initializing app...")
     unschedule(initialize)
-	runEvery15Minutes(initialize) //schedule("*/15 * * * *", initialize)
+	schedule("0 0/15 * 1/1 * ? *", initialize) //runEvery15Minutes(initialize)
     //unschedule(discovery)
-    //runEvery1Minute(discovery)
+    //schedule("* * * * *", discovery) //runEvery1Minute(discovery)
     unschedule(pingState)
-	runEvery1Minute(pingState)
+	schedule("0 0/1 * 1/1 * ? *", pingState) //runEvery1Minute(pingState)
 	// subscribe to mode/routine changes
 	subscribe(location, "mode", inputHandler)
 	subscribe(location, "routineExecuted", inputHandler)
