@@ -756,6 +756,11 @@ def capabilitiesPage() {
 	]
 ]
 
+def hubStartupHandler() {
+	debug("[a:hubStartupHandler] Starting MQTT Link App")
+    initialize() 
+}
+
 def installed() {
 	debug("[a:installed] Installed with settings: ${settings}")
 
