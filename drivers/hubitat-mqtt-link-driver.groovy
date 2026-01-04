@@ -129,6 +129,7 @@ void initialize() {
        
         // delay for connection
         pauseExecution(1000)
+        debug("[d:initialize] Connected to Broker")
         
     } catch(Exception e) {
         error("[d:initialize] ${e}")
@@ -293,7 +294,7 @@ def publishMqtt(topic, payload, qos = 0, retained = false) {
 // ========================================================
 
 def connected() {
-    debug("[d:connected] Connected to broker")
+    debug("[d:connected] Sending connected events")
     sendEvent (name: "connectionState", value: "connected")
     announceLwtStatus("online")
 }
