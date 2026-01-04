@@ -31,7 +31,7 @@ import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 import groovy.transform.Field
 
-public static String version() { return "v2.1.0" }
+public static String version() { return "v2.3.0" }
 public static String rootTopic() { return "hubitat" }
 
 definition(
@@ -69,6 +69,9 @@ preferences {
 	}
         section("Debug Settings") {
             input("debugLogging", "bool", title: "Enable debug logging", required: false, default:false) 
+        }
+        section("Verbose Settings") {
+            input("verboseLogging", "bool", title: "Enable verbose logging", required: false, default:false) 
         }
     }
     page(name: "capabilitiesPage", install: true)
@@ -265,7 +268,7 @@ def capabilitiesPage() {
 		name: "Door Control",
 		capability: "capability.doorControl",
 		attributes: [
-			"door" // ["unknown", "closed", "open", "closing", "opening"]
+			"doorControl" // ["unknown", "closed", "open", "closing", "opening"]
 		],
 		action: "actionOpenClose"
 	],
@@ -309,7 +312,8 @@ def capabilitiesPage() {
 		name: "Garage Door Control",
 		capability: "capability.garageDoorControl",
 		attributes: [
-			"door" // ["unknown", "open", "closing", "closed", "opening"]
+			"door", // ["unknown", "open", "closing", "closed", "opening"]
+			"garageDoorControl"
 		],
 		action: "actionOpenClose"
 	],
@@ -755,9 +759,6 @@ def capabilitiesPage() {
 def installed() {
 	debug("[a:installed] Installed with settings: ${settings}")
 
-	runEvery15Minutes(initialize)
-	runEvery1Minute(pingState)
-    
 	initialize()
 }
 
@@ -773,7 +774,12 @@ def updated() {
 
 def initialize() {
     debug("Initializing app...")
-    
+    unschedule(initialize)
+	runEvery15Minutes(initialize) //schedule("*/15 * * * *", initialize)
+    //unschedule(discovery)
+    //runEvery1Minute(discovery)
+    unschedule(pingState)
+	runEvery1Minute(pingState)
 	// subscribe to mode/routine changes
 	subscribe(location, "mode", inputHandler)
 	subscribe(location, "routineExecuted", inputHandler)
@@ -816,7 +822,7 @@ def initialize() {
 
 // Update the mqttLink's subscription
 def updateSubscription(attributes) {
-	def json = new groovy.json.JsonOutput().toJson([
+	def json = JsonOutput.toJson([
 		path: "/subscribe",
 		body: [
 			devices: attributes
@@ -834,16 +840,20 @@ def mqttLinkHandler(evt) {
 	debug("[a:mqttLinkHandler] Received inbound device event from MQTT Link Driver: ${json}")
     
 	if (json.type == "notify") {
+	    verbose("[a:mqttLinkHandler] notify: ${json.value}")
 		sendNotificationEvent("${json.value}")
 		return
 	} else if (json.type == "modes") {
+	    verbose("[a:mqttLinkHandler] modes: ${json.value}")
 		actionModes(json.value)
 		return
 	} else if (json.type == "routines") {
+	    verbose("[a:mqttLinkHandler] routines: ${json.value}")
 		actionRoutines(json.value)
 		return
 	}
     
+	verbose("[a:mqttLinkHandler] fall through: ${json.value}")
     def attribute = json.type
     def capability = CAPABILITY_MAP[attribute]
     def normalizedId = json.device.toString()
@@ -853,6 +863,8 @@ def mqttLinkHandler(evt) {
         device -> (device.displayName == deviceName)
     }
     
+    verbose("[a:mqttLinkHandler] capability[\"attributes\"]: ${capability["attributes"]}")
+    verbose("[a:mqttLinkHandler] attribute: ${attribute}")
     if (selectedDevice && settings[normalizedId] && capability["attributes"].contains(attribute)) {
         if (capability.containsKey("action")) {
             def action = capability["action"]
@@ -867,6 +879,7 @@ def mqttLinkHandler(evt) {
 // Receive an event from a device
 def inputHandler(evt) {
     
+    debug("[a:inputHandler] Incoming Event: ${evt}   state: ${state}")
     // Incoming MQTT event will tigger a hub event which in-turn triggers a second call
     // to inputHandler. If the evt is a hub Event and not json, it is swallowed
     // to prevent triggering an outbound MQTT event for the incoming MQTT event.    
@@ -879,7 +892,7 @@ def inputHandler(evt) {
 		state.ignoreEvent = false;
 	}
 	else {
-		def json = new JsonOutput().toJson([
+		def json = JsonOutput.toJson([
             path: "/push",
             body: [
                 archivable: evt.archivable,
@@ -908,6 +921,33 @@ def inputHandler(evt) {
         mqttLink.deviceNotification(json)
 	}
 }
+
+/*
+def discovery() {
+	debug("[a:discovery] Running Discovery")
+    try {
+        def deviceList = []
+        settings.selectedDevices.each { device ->
+            def deviceId = normalizeId(device)
+            def capabilities = device.getCapabilities()
+            deviceList.add([
+                normalizedId: deviceId
+            ])
+        }
+        debug("[a:discovery] Device Discovery Complete")
+        def jsonList = JsonOutput.toJson(deviceList)
+        debug("[a:discovery] Device Discovery Complete ${jsonList}")
+        def json = JsonOutput.toJson([
+            path: "/discovery",
+            body: jsonList
+        ])
+        mqttLink.deviceNotification(json)
+        debug("[a:discovery] Discovery Notification Complete")
+    } catch (Exception e) {
+        error("[a:discovery] Discovery Error: ${e}")
+    }
+}
+*/
 
 def pingState() {
     def pingList = []
@@ -947,14 +987,13 @@ def pingState() {
     }
     
     if (pingList.size > 0) {
-        def json = new JsonOutput().toJson([
+        def json = JsonOutput.toJson([
                         path: "/ping",
                         body: pingList
                     ])
         
         mqttLink.deviceNotification(json)
     }
-    
 }
 
 // ========================================================
@@ -1022,6 +1061,12 @@ def normalizedId(com.hubitat.hub.domain.Event evt) {
 def debug(msg) {
 	if (debugLogging) {
 	log.debug msg
+    }
+}
+
+def verbose(msg) {
+	if (verboseLogging) {
+        log.debug msg
     }
 }
 
@@ -1489,6 +1534,7 @@ def actionZwMultichannel(device, attribute, value) {
  */
 
 def actionOpenClose(device, attribute, value) {
+	debug("[actionOpenClose] ${device} ${attribute} ${value}")
 	if (value == "open") {
 		device.open()
 	} else if (value == "close") {

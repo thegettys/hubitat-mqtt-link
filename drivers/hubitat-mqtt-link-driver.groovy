@@ -96,6 +96,13 @@ metadata {
                 required: false, 
                 default: false
             )
+            input(
+                name: "verboseLogging",
+                type: "bool",
+                title: "Enable verbose logging",
+                required: false,
+                default: false
+            )
 		}
 
         // Provided for broker setup and troubleshooting
@@ -175,7 +182,7 @@ def disconnect() {
 
 // Device event notification from MQTT Link app via mqttLink.deviceNotification() 
 def deviceNotification(message) {
-    debug("[d:deviceNotification] Received message from MQTT Link app: '${message}'")
+    verbose("[d:deviceNotification] Received message from MQTT Link app: '${message}'")
     
     
     def slurper = new JsonSlurper()
@@ -274,7 +281,7 @@ def publishMqtt(topic, payload, qos = 0, retained = false) {
 
     try {
         interfaces.mqtt.publish("${pubTopic}", payload, qos, retained)
-        debug("[d:publishMqtt] topic: ${pubTopic} payload: ${payload}")
+        verbose("[d:publishMqtt] topic: ${pubTopic} payload: ${payload}")
         
     } catch (Exception e) {
         error("[d:publishMqtt] Unable to publish message: ${e}")
@@ -299,7 +306,7 @@ def disconnected() {
 
 def announceLwtStatus(String status) {
     publishMqtt("LWT", status)
-    publishMqtt("FW", "${location.hub.firmwareVersionString}")
+    publishMqtt("FIRMWARE", "${location.hub.firmwareVersionString}")
     publishMqtt("IP", "${location.hub.localIP}")
     publishMqtt("UPTIME", "${location.hub.uptime}")
 }
@@ -341,6 +348,12 @@ def notMqttConnected() {
 def debug(msg) {
 	if (debugLogging) {
     	log.debug msg
+    }
+}
+
+def verbose(msg) {
+	if (verboseLogging) {
+        log.debug msg
     }
 }
 
