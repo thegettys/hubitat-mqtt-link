@@ -780,6 +780,8 @@ def updated() {
 def initialize() {
     debug("Initializing app...")
     unschedule(initialize)
+	
+    // http://www.cronmaker.com/ for quartz cron format
 	schedule("0 0/15 * 1/1 * ? *", initialize) //runEvery15Minutes(initialize)
     //unschedule(discovery)
     //schedule("* * * * *", discovery) //runEvery1Minute(discovery)
